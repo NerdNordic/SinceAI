@@ -14,7 +14,7 @@ No real Bayer data is represented; all names, usage and figures are synthetic.
 pip install -r requirements.txt
 cp .env.example .env         # then edit: any OpenAI-compatible endpoint + model
 
-streamlit run app.py         # chat UI + governance audit
+streamlit run app.py         # chat UI + governance audit (localhost-only, see below)
 # or headless:
 python cli.py audit          # full governance audit report
 python cli.py ask "Can we build a launch dashboard for Lynkuet with market access and adoption?"
@@ -24,6 +24,19 @@ python smoke_test_tools.py   # verifies every tool against the DB (no LLM needed
 
 Set `GOVAGENT_PROVIDER=stub` to exercise the agent loop and UI with no LLM endpoint
 (offline rehearsal mode).
+
+### Local-only binding (no network exposure)
+
+Streamlit binds to all network interfaces by default and prints a `Network URL` — on a
+corporate LAN that means the app is reachable by others. This repo pins it to loopback via
+`.streamlit/config.toml` (`server.address = 127.0.0.1`), so plain `streamlit run app.py`
+listens only on your machine.
+
+Alternatives, if you ever want to override:
+
+- one-off CLI flag: `streamlit run app.py --server.address 127.0.0.1`
+- env var: `STREAMLIT_SERVER_ADDRESS=127.0.0.1` (`set`/`setx` on Windows, `export` in bash)
+- to deliberately share on your LAN: `streamlit run app.py --server.address 0.0.0.0`
 
 ## Architecture
 
