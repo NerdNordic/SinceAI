@@ -2,12 +2,13 @@ import json
 import os
 import re
 import sqlite3
+import threading
 from pathlib import Path
 
 _PKG_PARENT = Path(__file__).resolve().parent.parent
 _DEFAULT_DB = _PKG_PARENT / "Bayer_SinceAI2026 _1_" / "Bayer_SinceAI2026" / "bayer_sinceai.db"
 
-_con = None
+_local = threading.local()
 _usage_cache = None
 
 KPI_GROUNDING = {
@@ -40,13 +41,14 @@ def classify_intent(text):
 
 
 def db():
-    global _con
-    if _con is None:
+    con = getattr(_local, "con", None)
+    if con is None:
         path = Path(os.environ.get("GOVAGENT_DB") or _DEFAULT_DB).resolve()
         if not path.exists():
             raise RuntimeError(f"SQLite database not found at {path} (set GOVAGENT_DB to override)")
-        _con = sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True)
-    return _con
+        con = sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True)
+        _local.con = con
+    return con
 
 
 def rows(sql, *params):

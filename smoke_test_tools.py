@@ -1,5 +1,6 @@
 import json
 import sys
+import threading
 
 from govagent import tools as T
 
@@ -116,6 +117,31 @@ serialized = {name: T.dump_tool_result(T.call_tool(name)) for name in
               ["find_kpi_conflicts", "find_duplicate_assets", "find_reuse_candidates"]}
 check("tool results serialize and stay under size cap",
       all(len(s) <= 8000 for s in serialized.values()))
+
+thread_errors = []
+thread_barrier = threading.Barrier(4)
+
+
+def _thread_worker(asset):
+    try:
+        thread_barrier.wait()
+        r = T.tool_asset_report(asset)
+        if r["data"].get("asset_id") != asset:
+            thread_errors.append(f"wrong asset returned for {asset}")
+        T.tool_estate_overview()
+        T.tool_usage_stats(asset)
+    except Exception as e:
+        thread_errors.append(f"{asset}: {e}")
+
+
+threads = [threading.Thread(target=_thread_worker, args=(a,))
+           for a in ["AST-0180", "AST-0080", "AST-0132", "AST-0140"]]
+for t in threads:
+    t.start()
+for t in threads:
+    t.join()
+check("threaded tool calls succeed (Streamlit rerun simulation)",
+      not thread_errors, str(thread_errors[:2]))
 
 print()
 if FAILURES:
