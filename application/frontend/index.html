@@ -641,7 +641,7 @@ createApp({
       const role = this.pinTarget[fp] || (this.factoryRoles[0] || {}).id;
       const res = await fetch('/api/dashboards/' + role + '/charts', { method: 'POST',
         headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fingerprint: fp }) });
-      if (!res.ok) alert('Kiinnitys epäonnistui: ' + await res.text());
+      if (!res.ok) alert(this.t('Kiinnitys epäonnistui:') + ' ' + await res.text());
       await this.refresh();
     },
     async unpin(role, fp) {

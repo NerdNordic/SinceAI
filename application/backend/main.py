@@ -21,7 +21,16 @@ from .i18n import Language, role_label
 
 app = FastAPI(title="Build Less assistant", version="0.1.0")
 STATIC = Path(__file__).resolve().parent.parent / "frontend"
-app.mount("/static", StaticFiles(directory=STATIC), name="static")
+
+
+class NoCacheStaticFiles(StaticFiles):
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
+app.mount("/static", NoCacheStaticFiles(directory=STATIC), name="static")
 
 
 class AskIn(BaseModel):
@@ -47,7 +56,7 @@ class PinIn(BaseModel):
 
 @app.get("/")
 def index():
-    return FileResponse(STATIC / "index.html")
+    return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/api/roles")

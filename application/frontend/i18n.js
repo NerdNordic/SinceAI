@@ -37,6 +37,7 @@ const ENGLISH = {
   'Gemini tulkitsee kysymystä ja moottori laskee…': 'Gemini is interpreting the question and the engine is calculating…',
   'Kysy luvuista, pyydä kaaviota tai jatka edellisestä…': 'Ask about figures, request a chart, or follow up…',
   'Lähetä': 'Send', 'Virhe': 'Error', 'Pyyntö epäonnistui. Yritä uudelleen.': 'The request failed. Please try again.',
+  'Kiinnitys epäonnistui:': 'Pinning failed:',
   'AI-palvelu ei ole juuri nyt käytettävissä. Yritä hetken kuluttua uudelleen.': 'The AI service is temporarily unavailable. Please try again shortly.',
   'Tehtaan johtaja': 'Plant director', 'Vuoropäällikkö': 'Shift supervisor', 'Tuotantotyöntekijä': 'Production worker',
   'Data Steward': 'Data steward', 'Net Sales': 'Net Sales', 'Net Sales Growth': 'Net Sales Growth',

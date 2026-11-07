@@ -595,3 +595,12 @@ def test_reuse_across_languages_keeps_identity(client, monkeypatch):
     chart = dbmod.get_db().chart_registry.find_one({"fingerprint": en["fingerprint"]})
     assert chart["titles"] == {"en": "Shipped units", "fi": "Toimitetut kappaleet"}
     assert len(dbmod.get_db().conversations.find_one({"_id": en["session_id"]})["turns"]) == 2
+
+
+def test_static_responses_always_revalidate(client):
+    index = client.get("/")
+    assert index.status_code == 200
+    assert index.headers["cache-control"] == "no-cache"
+    i18n = client.get("/static/i18n.js")
+    assert i18n.status_code == 200
+    assert i18n.headers["cache-control"] == "no-cache"
