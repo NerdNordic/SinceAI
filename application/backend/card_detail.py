@@ -120,7 +120,8 @@ def _volume_detail(role: str, language: Language) -> dict[str, Any]:
 
 def _pairs_detail(role: str, language: Language) -> dict[str, Any]:
     rows = sorted(_plant_rows(role), key=lambda r: r["days_to_recommended_order"])
-    return {"rows": _repl_table(rows, language), "source": text("replenishment · tuote × markkina", language)}
+    return {"chart": _days_chart(rows, language), "rows": _repl_table(rows, language),
+            "source": text("replenishment · tuote × markkina", language)}
 
 
 def _urgent_detail(role: str, language: Language) -> dict[str, Any]:
@@ -147,7 +148,7 @@ def _week_orders_detail(role: str, language: Language) -> dict[str, Any]:
 def _expedite_detail(role: str, language: Language) -> dict[str, Any]:
     rows = [x for x in _plant_rows(role) if x["expedite"] and x["expedite"]["feasible"]]
     rows = sorted(rows, key=lambda r: r["days_to_recommended_order"])
-    return {"rows": _repl_table(rows, language),
+    return {"chart": _days_chart(rows, language), "rows": _repl_table(rows, language),
             "source": text("replenishment · nopeutustilaus mahdollinen", language)}
 
 
@@ -216,6 +217,32 @@ _BUILDERS = {
     "new_charts": _new_charts_detail, "handled": _handled_detail,
     "certify_suggestions": _certify_detail, "retire_suggestions": _retire_detail,
 }
+
+_SPARK_POINTS = {"line": 12, "bar": 6}
+
+
+def _sparkline(chart: dict[str, Any]) -> dict[str, Any]:
+    """Trim a detail chart to card size: newest points for lines, most urgent bars first."""
+    n = min(_SPARK_POINTS.get(chart["type"], 6), len(chart["labels"]))
+    take = slice(-n, None) if chart["type"] == "line" else slice(0, n)
+    return {"type": chart["type"], "labels": chart["labels"][take],
+            "datasets": [{k: (v[take] if isinstance(v, list) else v) for k, v in ds.items()}
+                         for ds in chart["datasets"]]}
+
+
+def card_charts(role: str, language: Language = "en") -> dict[str, Any]:
+    """Compact chart per briefing card, rendered inline on the card itself."""
+    if role not in config.ROLES:
+        raise ValueError(role)
+    out: dict[str, Any] = {}
+    for card in briefing(role, language)["cards"]:
+        builder = _BUILDERS.get(card["key"])
+        if builder is None:
+            continue
+        chart = builder(role, language).get("chart")
+        if chart and chart.get("labels"):
+            out[card["key"]] = _sparkline(chart)
+    return out
 
 
 def card_detail(role: str, key: str, language: Language = "en") -> dict[str, Any]:

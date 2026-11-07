@@ -341,6 +341,34 @@ def test_card_detail(client):
     assert client.get("/api/briefing/x/card/otif").status_code == 404
 
 
+def test_card_charts(client):
+    """Each briefing card whose detail has a chart also ships a compact sparkline for inline rendering."""
+    for role in ("tehtaan_johtaja", "vuoropaallikko", "tuotantotyontekija"):
+        sparks = client.get(f"/api/briefing/{role}/charts").json()
+        cards = client.get(f"/api/briefing/{role}").json()["cards"]
+        assert set(sparks) <= {c["key"] for c in cards}, role
+        for c in cards:
+            full = client.get(f"/api/briefing/{role}/card/{c['key']}").json().get("chart") or {}
+            labels = full.get("labels") or []
+            if not labels:
+                assert c["key"] not in sparks, (role, c["key"])
+                continue
+            spark = sparks[c["key"]]
+            n = min(12 if full["type"] == "line" else 6, len(labels))
+            take = slice(-n, None) if full["type"] == "line" else slice(0, n)
+            assert spark["type"] == full["type"], (role, c["key"])
+            assert spark["labels"] == labels[take], (role, c["key"])
+            assert spark["datasets"][0]["data"] == full["datasets"][0]["data"][take], (role, c["key"])
+            if "forecastShare" in full["datasets"][0]:
+                assert spark["datasets"][0]["forecastShare"] == full["datasets"][0]["forecastShare"][take], (role, c["key"])
+    otif = client.get("/api/briefing/tehtaan_johtaja/charts").json()["otif"]
+    assert otif["type"] == "line" and any(s > 0 for s in otif["datasets"][0]["forecastShare"])
+    urgent = client.get("/api/briefing/tehtaan_johtaja/charts").json()["urgent"]
+    assert urgent["type"] == "bar" and len(urgent["labels"]) <= 6
+    assert client.get("/api/briefing/data_steward/charts").json() == {}
+    assert client.get("/api/briefing/x/charts").status_code == 404
+
+
 def test_propose_and_decide(client, monkeypatch):
     fp = ask(client, "Näytä toimitusvarmuus kuukausittain")["fingerprint"]
     p = client.post(f"/api/registry/{fp}/propose", json={"action": "certify"}).json()

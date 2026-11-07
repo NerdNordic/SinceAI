@@ -72,6 +72,14 @@ def get_card_detail(role: str, key: str, language: Language = "en"):
         raise HTTPException(404, "unknown card")
 
 
+@app.get("/api/briefing/{role}/charts")
+def get_card_charts(role: str, language: Language = "en"):
+    """Compact charts for every briefing card, so cards can be visualised without a click."""
+    if role not in config.ROLES:
+        raise HTTPException(404, "unknown role")
+    return card_detail_mod.card_charts(role, language)
+
+
 @app.post("/api/ask")
 def ask(body: AskIn):
     if body.role not in config.ROLES:

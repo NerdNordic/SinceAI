@@ -13,7 +13,7 @@ const ENGLISH = {
   'Ei vielä kaavioita. Kysy jotain tehdasroolina.': 'No charts yet. Ask a question using a plant role.',
   'Kojelauta': 'Dashboard', 'Sertifioidut KPI:t': 'Certified KPIs', 'kaaviota': 'charts',
   'luvut lasketaan aina tuoreesta datasta': 'figures are always computed from fresh data',
-  'Haetaan sertifioituja kaavioita…': 'Fetching certified charts…',
+  'Haetaan sertifioituja kaavioita…': 'Fetching certified charts…', 'Haetaan aamubriefingiä…': 'Loading morning briefing…',
   'Ei vielä sertifioituja kaavioita tälle roolille. Kysy lukuja keskustelussa ja pyydä Data Stewardia sertifioimaan ne.':
     'No certified charts for this role yet. Ask for figures in the conversation and ask a Data Steward to certify them.',
   'Hyväksyntää odottavat': 'Proposals', 'Sertifiointi': 'Certification', 'Poisto': 'Retirement',

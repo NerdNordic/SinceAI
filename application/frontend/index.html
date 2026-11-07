@@ -50,10 +50,12 @@ try {
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
   .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; }
   .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .card { border: 1px solid var(--line); border-radius: 10px; padding: 10px; cursor: pointer; transition: border-color .12s; }
+  .card { border: 1px solid var(--line); border-radius: 10px; padding: 10px; cursor: pointer; transition: border-color .12s; min-width: 0; }
   .card:hover { border-color: var(--accent); }
   .card .v { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
   .card .l { font-size: 12.5px; color: var(--muted); }
+  .card .spark { position: relative; height: 54px; margin-top: 8px; overflow: hidden; }
+  .card .spark.bar { height: 128px; }
   .card.critical { background: var(--crit-soft); border-color: transparent; } .card.critical .v { color: var(--crit); }
   .card.warning { background: var(--warn-soft); border-color: transparent; } .card.warning .v { color: var(--warn); }
   .delta { font-size: 12.5px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
@@ -158,13 +160,15 @@ try {
   </header>
 
   <main>
-    <section class="panel" v-if="brief">
+    <section class="panel">
+      <template v-if="brief">
       <h2>{{ t('Aamubriefing') }} · {{ brief.role }}<template v-if="brief.plant"> · {{ brief.plant }}</template></h2>
       <div class="cards">
         <div v-for="c in brief.cards" class="card" :class="c.tone" @click="openCard(c)">
           <div class="v">{{ fmt(c.value) }}<small v-if="c.unit" class="muted"> {{ c.unit }}</small></div>
           <div class="delta" v-if="c.target != null" :class="deltaTone(c)">{{ deltaText(c) }}</div>
           <div class="l">{{ c.label }}</div>
+          <div class="spark" v-if="cardCharts[c.key]" :class="cardCharts[c.key].type" aria-hidden="true"><canvas :id="'sc-' + c.key"></canvas></div>
           <button v-if="c.ask_hint" class="btn ghost kysy" @click.stop="askFrom(c.ask_hint)">{{ t('Kysy tästä') }}</button>
         </div>
       </div>
@@ -180,6 +184,8 @@ try {
       </div>
       <div class="devs ok" v-else-if="brief.deviations">{{ t('Ei poikkeamia — kaikki tavoitteissa.') }}</div>
       <div class="fresh" v-if="brief.freshness">{{ brief.freshness }}</div>
+      </template>
+      <div v-else class="spinner">{{ t('Haetaan aamubriefingiä…') }}</div>
     </section>
 
     <section>
@@ -351,6 +357,7 @@ try {
 <script>
 const { createApp, nextTick } = Vue;
 const charts = {};
+const sparks = {};
 let modalChart = null;
 function mixHex(a, b, t) {
   const pa = [1, 3, 5].map(i => parseInt(a.slice(i, i + 2), 16));
@@ -394,7 +401,7 @@ createApp({
   data: () => ({
     language: document.documentElement.lang === 'fi' ? 'fi' : 'en', languageLoading: false,
     theme: document.documentElement.dataset.theme === 'light' ? 'light' : 'dark',
-    roles: [], role: 'tehtaan_johtaja', brief: null, meter: null, question: '', busy: false, answers: [],
+    roles: [], role: 'tehtaan_johtaja', brief: null, cardCharts: {}, meter: null, question: '', busy: false, answers: [],
     sessionId: null, registry: [], proposals: [], auditLog: [],
     modal: null, modalBusy: false, cardSeq: 0,
     view: 'dash', dash: null, dashBusy: false, pinTarget: {}, pinnedBy: {},
@@ -470,14 +477,16 @@ createApp({
       document.documentElement.dataset.theme = this.theme;
       try { localStorage.setItem('sinceai-theme', this.theme); } catch {}
       Object.values(charts).forEach(applyChartTheme);
+      Object.values(sparks).forEach(applyChartTheme);
     },
     async refresh() {
       const language = this.language, role = this.role;
-      const urls = ['/api/roles?language=' + language, '/api/briefing/' + role + '?language=' + language, '/api/meter'];
+      const urls = ['/api/roles?language=' + language, '/api/briefing/' + role + '?language=' + language, '/api/meter',
+                    '/api/briefing/' + role + '/charts?language=' + language];
       if (role === 'data_steward') urls.push('/api/registry', '/api/proposals', '/api/audit');
-      const [roles, brief, meter, registry, proposals, auditLog] = await Promise.all(urls.map(url => this.getJSON(url)));
+      const [roles, brief, meter, cardCharts, registry, proposals, auditLog] = await Promise.all(urls.map(url => this.getJSON(url)));
       if (language !== this.language || role !== this.role) return;
-      Object.assign(this, {roles, brief, meter});
+      Object.assign(this, {roles, brief, meter, cardCharts});
       if (role === 'data_steward') {
         Object.assign(this, {registry, proposals, auditLog});
         this.pinnedBy = {};
@@ -485,11 +494,14 @@ createApp({
           this.pinnedBy[r.id] = (await this.getJSON('/api/dashboards/' + r.id + '?tiles=false')).pinned || [];
         }
         this.registry.forEach(c => { if (this.factoryRoles.length && !(c.fingerprint in this.pinTarget)) this.pinTarget[c.fingerprint] = this.factoryRoles[0].id; });
-      } else if (this.view === 'dash') {
-        await this.loadDash();
+      } else {
+        this.clearSparks();
+        await nextTick();
+        this.drawSparks();
+        if (this.view === 'dash') await this.loadDash();
       }
     },
-    async setRole(r) { this.role = r; this.brief = null; this.newChat(); this.dash = null; await this.refresh(); },
+    async setRole(r) { this.role = r; this.brief = null; this.cardCharts = {}; this.clearSparks(); this.newChat(); this.dash = null; await this.refresh(); },
     newChat() {
       this.clearCharts();
       this.answers = []; this.sessionId = null;
@@ -552,6 +564,40 @@ createApp({
       if (!el || !chart || chart.type === 'table') return;
       if (charts[id]) charts[id].destroy();
       charts[id] = this.mkChart(el, chart, unit);
+    },
+    mkSpark(el, chart) {
+      const horizontal = chart.type !== 'line';
+      const instance = new Chart(el, {
+        type: chart.type === 'line' ? 'line' : 'bar',
+        data: { labels: chart.labels.map(label => this.chartLabel(label)),
+                datasets: chart.datasets.map(d => ({ ...d, label: this.chartLabel(d.label), tension: 0, spanGaps: true,
+                  borderWidth: chart.type === 'line' ? 2 : 0, pointRadius: 2, pointHoverRadius: 4, borderRadius: 3,
+                  maxBarThickness: 16, barPercentage: 0.85, categoryPercentage: 0.85 })) },
+        options: { locale: this.locale, maintainAspectRatio: false, animation: false,
+          indexAxis: horizontal ? 'y' : 'x',
+          interaction: { mode: 'index', intersect: false },
+          plugins: { legend: { display: false, labels: {} },
+                     tooltip: { callbacks: { afterLabel: ctx => this.forecastTooltipLine(ctx) } } },
+          scales: horizontal
+            ? { x: { display: true, ticks: { font: { size: 9 }, maxRotation: 0, maxTicksLimit: 4 }, grid: { display: false }, border: {} },
+                y: { display: true, reverse: true, ticks: { font: { size: 9.5 } }, grid: { display: false }, border: {} } }
+            : { x: { display: false, ticks: {}, grid: {}, border: {} },
+                y: { display: false, ticks: {}, grid: {}, border: {} } } },
+      });
+      applyChartTheme(instance);
+      return instance;
+    },
+    drawSparks() {
+      for (const key in this.cardCharts) {
+        const el = document.getElementById('sc-' + key);
+        if (!el) continue;
+        if (sparks[key]) sparks[key].destroy();
+        sparks[key] = this.mkSpark(el, this.cardCharts[key]);
+      }
+    },
+    clearSparks() {
+      Object.values(sparks).forEach(c => c.destroy());
+      for (const k in sparks) delete sparks[k];
     },
     drawModal() {
       const el = document.getElementById('modalchart');
