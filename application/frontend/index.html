@@ -20,6 +20,7 @@ try {
     --bg: #111817; --panel: #1a2422; --ink: #e5eeeb; --muted: #a5b8b1; --line: #3b5048;
     --accent: #73d9b4; --accent-soft: #203c32; --warn: #f0c078; --warn-soft: #3d3020;
     --crit: #ffaaa2; --crit-soft: #422824; --info: #9cc5ff; --info-soft: #23344d;
+    --forecast: #f0c078;
     --on-accent: #10271e;
     --chart-palette: #73d9b4, #9cc5ff, #f0c078, #c6a5ed, #ffaaa2, #b9d982, #a5b8b1, #f49bc4;
   }
@@ -28,6 +29,7 @@ try {
     --bg: #f6f7f4; --panel: #ffffff; --ink: #1d2320; --muted: #5f6b65; --line: #dfe3dd;
     --accent: #0f6e56; --accent-soft: #e3f1ec; --warn: #895000; --warn-soft: #fbf0df;
     --crit: #b3261e; --crit-soft: #fbe6e4; --info: #2d5ba8; --info-soft: #e6eefa;
+    --forecast: #895000;
     --on-accent: #ffffff;
     --chart-palette: #0f6e56, #2d5ba8, #895000, #7a3e9d, #b3261e, #3f7f2a, #5f6b65, #c2185b;
   }
@@ -97,6 +99,10 @@ try {
   .CLARIFY { background: var(--warn-soft); color: var(--warn); }
   .reason { margin: 8px 0 12px; }
   .chartbox { position: relative; height: 300px; }
+  .fc-legend { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .fc-legend .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
+  .fc-legend .dot.actual { background: var(--accent); }
+  .fc-legend .dot.forecast { background: var(--forecast); }
   table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { color: var(--muted); font-weight: 600; font-size: 12px; }
@@ -230,7 +236,7 @@ try {
           Ei vielä sertifioituja kaavioita tälle roolille. Kysy lukuja keskustelussa ja pyydä Data Stewardia sertifioimaan ne.
           <div style="margin-top:10px"><button class="btn ghost" @click="setView('chat')">Siirry keskusteluun</button></div>
         </div>
-        <div class="tiles">
+        <div class="tiles" v-if="dash">
           <div v-for="t in dash.tiles" :key="t.fingerprint" class="tile">
             <div class="tile-head">
               <b>{{ t.title }}</b>
@@ -238,6 +244,9 @@ try {
               <span class="pill pin" v-if="t.pinned" title="Data Steward kiinnitti tämän kojelaudalle">kiinnitetty</span>
             </div>
             <div class="chartbox" v-if="t.chart && t.chart.type !== 'table'"><canvas :id="'d' + t.fingerprint"></canvas></div>
+            <div class="fc-legend" v-if="t.chart && t.chart.type !== 'table' && hasForecast(t.chart)">
+              <span class="dot actual"></span>{{ legendActual }}<span class="dot forecast"></span>{{ legendForecast }}<span>·</span>{{ legendBlend }}
+            </div>
             <div v-if="t.chart && t.chart.type === 'table'" style="overflow:auto;max-height:320px"><table>
               <tr><th v-for="k in Object.keys(t.rows[0] || {})">{{ k }}</th></tr>
               <tr v-for="r in t.rows.slice(0, 15)"><td v-for="v in Object.values(r)">{{ typeof v === 'number' ? fmt(v) : v }}</td></tr>
@@ -272,6 +281,9 @@ try {
         <p class="reason muted" v-if="a.reason !== a.answer">{{ a.reason }}</p>
         <template v-if="a.chart && a.chart.labels.length">
           <div class="chartbox" v-if="a.chart.type !== 'table'"><canvas :id="'c' + a.key"></canvas></div>
+          <div class="fc-legend" v-if="a.chart.type !== 'table' && hasForecast(a.chart)">
+            <span class="dot actual"></span>{{ legendActual }}<span class="dot forecast"></span>{{ legendForecast }}<span>·</span>{{ legendBlend }}
+          </div>
           <details :open="a.chart.type === 'table'"><summary>{{ t('Taulukko') }} ({{ fmt(a.rows.length) }} {{ t('riviä') }})</summary>
             <div style="overflow:auto;max-height:360px"><table>
               <tr><th v-for="k in Object.keys(a.rows[0] || {})">{{ t(k) }}</th></tr>
@@ -295,6 +307,7 @@ try {
         <div class="row" v-if="(a.related_reports || []).length">{{ t('Bayerin olemassa olevat raportit samasta KPI:stä') }}:
           <span v-for="r in a.related_reports" class="pill">{{ r.asset_id }} {{ r.name }} · {{ t(r.endorsement) }}</span></div>
         </div>
+        <div class="chips" v-if="(a.suggestions || []).length"><button v-for="s in a.suggestions" :key="s.question" @click="question = s.question; ask()" :disabled="busy || languageLoading">{{ s.label }}</button></div>
       </div>
         <div class="spinner" v-if="busy">{{ t('Gemini tulkitsee kysymystä ja moottori laskee…') }}</div>
         <form class="ask" @submit.prevent="ask()">
@@ -316,6 +329,9 @@ try {
       <p class="desc">{{ modal.description }}</p>
       <div class="kpi" v-if="modal.kpi"><span class="pill">{{ modal.kpi.id }}</span> {{ modal.kpi.name }} · {{ modal.kpi.definition }}</div>
       <div class="chartbox" v-if="modal.chart && modal.chart.labels.length"><canvas id="modalchart"></canvas></div>
+      <div class="fc-legend" v-if="hasForecast(modal.chart)">
+        <span class="dot actual"></span>{{ legendActual }}<span class="dot forecast"></span>{{ legendForecast }}<span>·</span>{{ legendBlend }}
+      </div>
       <details v-if="modal.rows && modal.rows.length" :open="!(modal.chart && modal.chart.labels.length)">
         <summary>Rivit ({{ modal.rows.length }})</summary>
         <div style="overflow:auto;max-height:300px"><table>
@@ -336,14 +352,34 @@ try {
 const { createApp, nextTick } = Vue;
 const charts = {};
 let modalChart = null;
+function mixHex(a, b, t) {
+  const pa = [1, 3, 5].map(i => parseInt(a.slice(i, i + 2), 16));
+  const pb = [1, 3, 5].map(i => parseInt(b.slice(i, i + 2), 16));
+  return '#' + pa.map((v, i) => Math.round(v + (pb[i] - v) * t).toString(16).padStart(2, '0')).join('');
+}
+
+function forecastColors(share, base, forecast) {
+  return share.map(s => s > 0 ? mixHex(base, forecast, Math.min(1, s)) : base);
+}
+
 function applyChartTheme(chart) {
   const style = getComputedStyle(document.documentElement);
   const textColor = style.getPropertyValue('--muted').trim();
   const gridColor = style.getPropertyValue('--line').trim();
+  const forecastColor = style.getPropertyValue('--forecast').trim();
   const palette = style.getPropertyValue('--chart-palette').split(',').map(color => color.trim());
   chart.data.datasets.forEach((dataset, i) => {
     dataset.borderColor = palette[i % palette.length];
     dataset.backgroundColor = dataset.borderColor + (chart.config.type === 'line' ? '' : 'cc');
+    if (Array.isArray(dataset.forecastShare) && dataset.forecastShare.some(s => s > 0)) {
+      const colors = forecastColors(dataset.forecastShare, dataset.borderColor, forecastColor);
+      if (chart.config.type === 'line') {
+        dataset.pointBackgroundColor = colors;
+        dataset.pointBorderColor = colors;
+      } else {
+        dataset.backgroundColor = colors.map(c => c + 'cc');
+      }
+    }
   });
   chart.options.plugins.legend.labels.color = textColor;
   for (const axis of Object.values(chart.options.scales)) {
@@ -368,6 +404,9 @@ createApp({
     locale() { return this.language === 'fi' ? 'fi-FI' : 'en-GB'; },
     roleLabel() { const r = this.roles.find(x => x.id === this.role); return r ? r.label : ''; },
     factoryRoles() { return this.roles.filter(r => r.id !== 'data_steward'); },
+    legendActual() { return this.t('Toteuma (actual-like)'); },
+    legendForecast() { return this.t('Ennuste (forecast-like)'); },
+    legendBlend() { return this.t('Sekoittunut väri = osittain ennusteperäistä'); },
   },
   async mounted() {
     window.addEventListener('keydown', (e) => { if (e.key === 'Escape') this.closeCard(); });
@@ -382,6 +421,18 @@ createApp({
         return Object.hasOwn(ENGLISH, canonical) ? ENGLISH[canonical] : canonical;
       }
       return Object.hasOwn(FINNISH, source) ? FINNISH[source] : source;
+    },
+    hasForecast(chart) {
+      return !!(chart && Array.isArray(chart.datasets) &&
+        chart.datasets.some(d => Array.isArray(d.forecastShare) && d.forecastShare.some(s => s > 0)));
+    },
+    forecastTooltipLine(ctx) {
+      const ds = ctx.chart.data.datasets[ctx.datasetIndex];
+      if (!Array.isArray(ds?.forecastShare) || !ds.forecastShare.some(s => s > 0)) return '';
+      const s = ds.forecastShare[ctx.dataIndex];
+      if (s == null || s <= 0) return this.t('Toteuma (actual-like)');
+      if (s >= 1) return this.t('Ennuste (forecast-like)');
+      return this.t('Osittain ennusteperäistä') + ': ' + this.fmt(Math.round(s * 100)) + ' %';
     },
     chartTitle(chart) {
       const registered = this.registry.find(c => c.fingerprint === chart.fingerprint) || chart;
@@ -452,9 +503,14 @@ createApp({
       if (this.role === 'data_steward') return;
       this.dashBusy = true;
       try {
-        this.dash = await (await fetch('/api/dashboards/' + this.role)).json();
+        const res = await fetch('/api/dashboards/' + this.role);
+        if (!res.ok) throw new Error('dashboard ' + res.status);
+        this.dash = await res.json();
         await nextTick();
         (this.dash.tiles || []).forEach(t => this.drawChart('d' + t.fingerprint, t.chart, t.unit));
+      } catch (exc) {
+        this.dash = null;
+        alert(this.t('Pyyntö epäonnistui. Yritä uudelleen.'));
       } finally { this.dashBusy = false; }
     },
     async ask() {
@@ -477,7 +533,9 @@ createApp({
       const instance = new Chart(el, {
         type: chart.type === 'line' ? 'line' : 'bar',
         data: { labels: chart.labels.map(label => this.chartLabel(label)), datasets: chart.datasets.map(d => ({ ...d, label: this.chartLabel(d.label), tension: 0, spanGaps: true })) },
-        options: { locale: this.locale, maintainAspectRatio: false, plugins: { legend: { display: chart.datasets.length > 1, position: 'bottom', labels: {} } },
+        options: { locale: this.locale, maintainAspectRatio: false, plugins: {
+            legend: { display: chart.datasets.length > 1, position: 'bottom', labels: {} },
+            tooltip: { callbacks: { afterLabel: ctx => this.forecastTooltipLine(ctx) } } },
           scales: {
             x: { ticks: {}, grid: {}, border: {} },
             y: { ticks: {}, grid: {}, border: {}, title: { display: true, text: this.t(unit) } },

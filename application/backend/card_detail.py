@@ -9,7 +9,7 @@ import pandas as pd
 from . import config
 from .briefing import STATUS_FI, URGENT, briefing
 from .db import get_db, lookups
-from .metrics import METRICS, replenishment_results
+from .metrics import ACTUAL, METRICS, replenishment_results
 
 DESCRIPTIONS = {
     "pairs": "Kaikki tehtaan toimitusvastuulla olevat tuote–markkina-parit, joille on meneillään "
@@ -79,7 +79,7 @@ def _otif_detail(role: str) -> dict[str, Any]:
     plant = config.ROLES[role]["plant"]
     pairs = {k for k, v in lookups()["plant"].items() if v == plant}
     df = pd.DataFrame(list(get_db().product_market_monthly.find(
-        {}, {"_id": 0, "product_id": 1, "market_id": 1, "month": 1, "otif_pct_syn": 1})))
+        {}, {"_id": 0, "product_id": 1, "market_id": 1, "month": 1, "otif_pct_syn": 1, "value_type": 1})))
     out = {"chart": {"type": "line", "labels": [], "datasets": []}, "kpi": _otif_kpi(),
            "source": "product_market_monthly"}
     if not df.empty:
@@ -88,9 +88,12 @@ def _otif_detail(role: str) -> dict[str, Any]:
         return out
     df["month"] = pd.to_datetime(df["month"]).dt.strftime("%Y-%m")
     g = df.groupby("month")["otif_pct_syn"].mean().round(2).sort_index()
+    fc = df["value_type"] != ACTUAL
+    share = (fc.groupby(df["month"]).sum() / df.groupby("month").size()).reindex(g.index).fillna(0.0)
     out["chart"] = {"type": "line", "labels": g.index.tolist(),
                     "datasets": [{"label": f"OTIF % ({plant}, keskiarvo)",
-                                  "data": [round(float(v), 2) for v in g]}]}
+                                  "data": [round(float(v), 2) for v in g],
+                                  "forecastShare": [round(float(s), 3) for s in share]}]}
     out["source"] = f"product_market_monthly · {len(df)} riviä · {df['month'].min()} – {df['month'].max()}"
     return out
 

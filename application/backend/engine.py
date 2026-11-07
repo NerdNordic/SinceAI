@@ -7,9 +7,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import urllib.request
 import uuid
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from . import config, metrics
@@ -23,6 +26,35 @@ ACTIVE = ["active", "certified"]
 
 def now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+DEFAULT_SUGGESTIONS = ["Net Sales", "On-Time In-Full", "Units Shipped", "Inventory Coverage"]
+
+
+@lru_cache(maxsize=1)
+def _metric_aliases() -> dict[str, list[str]]:
+    """Curated business vocabulary (kpi_aliases.json), supported metrics only."""
+    try:
+        raw = json.loads((Path(__file__).resolve().parent.parent / "config" / "kpi_aliases.json").read_text())
+    except Exception:  # noqa: BLE001 - suggestions are optional
+        raw = {}
+    return {k: [a.lower() for a in v] for k, v in raw.items()
+            if not k.startswith("_") and k in metrics.METRICS}
+
+
+def _suggestions(question: str, language: Language) -> list[dict[str, str]]:
+    """Metric chips for a clarify/abilities answer: the metrics the user mentioned, else the core catalog."""
+    q = question.lower()
+    hits = []
+    for name, aliases in _metric_aliases().items():
+        best = max((a for a in [*aliases, name.lower()] if re.search(rf"\b{re.escape(a)}\b", q)), key=len, default="")
+        if best:
+            hits.append((best, name))
+    hits.sort(key=lambda h: (-len(h[0]), h[1]))
+    kept = [name for alias, name in hits
+            if not any(len(other) > len(alias) and alias in other for other, _ in hits)]
+    names = kept[:5] or DEFAULT_SUGGESTIONS
+    return [{"label": metric_label(n, language), "question": n} for n in names]
 
 
 def fingerprint(spec: ChartSpec) -> str:
@@ -109,7 +141,18 @@ def fallback_answer(spec: ChartSpec, result: dict[str, Any], language: Language 
                     date=r["tilaa_viimeistaan"], status=text(STATUS_FI[r["tila"]], language))
     chart = result["chart"]
     if "month" in spec.dimensions and chart["datasets"] and len(chart["labels"]) >= 2:
-        d = chart["datasets"][0]
+        datasets = chart["datasets"]
+        if len(datasets) > 1:                        # multiline: latest value per series (max 4)
+            parts = []
+            for d in datasets[:4]:
+                vals = [(m, v) for m, v in zip(chart["labels"], d["data"]) if v is not None]
+                if vals:
+                    (lm, lv) = vals[-1]
+                    parts.append(text("{label}: {value} {unit} ({month})", language,
+                                      label=d["label"], value=f"{lv:g}", unit=unit, month=lm))
+            if parts:
+                return text("Viimeisimmät arvot: {series}.", language, series=", ".join(parts))
+        d = datasets[0]
         vals = [(m, v) for m, v in zip(chart["labels"], d["data"]) if v is not None]
         if len(vals) >= 2:
             (pm, pv), (lm, lv) = vals[-2], vals[-1]
@@ -136,14 +179,16 @@ def ask(question: str, role: str, session_id: str | None = None, language: Langu
             "Voin näyttää tehtaan luvut ja kaaviot hallituilla määritelmillä: {metrics}. Kysy esimerkiksi, mitä pitää tilata tällä viikolla.",
             language, metrics=", ".join(metric_label(k, language) for k in metrics.METRICS))
         _save_turn(session_id, role, {"q": question, "decision": "CHAT", "answer": answer})
-        return {**base, "decision": "CHAT", "answer": answer}
+        return {**base, "decision": "CHAT", "answer": answer,
+                "suggestions": _suggestions(question, language) if spec.metric == "UNSUPPORTED" else []}
 
     if not spec.understood or spec.metric == "UNSUPPORTED":
         msg = spec.clarification_question or text("En löytänyt tähän hallittua mittaria. Voin näyttää: {metrics}.",
                                                 language, metrics=", ".join(metric_label(k, language) for k in metrics.METRICS))
         db.request_log.insert_one({"ts": now(), "role": role, "question": question, "decision": "CLARIFY"})
         _save_turn(session_id, role, {"q": question, "decision": "CLARIFY", "answer": msg})
-        return {**base, "decision": "CLARIFY", "rule": "RULE-002", "reason": msg, "answer": msg}
+        return {**base, "decision": "CLARIFY", "rule": "RULE-002", "reason": msg, "answer": msg,
+                "suggestions": _suggestions(question, language)}
 
     fp = fingerprint(spec)
     existing = db.chart_registry.find_one({"fingerprint": fp, "status": {"$in": ACTIVE}}, {"embedding": 0})

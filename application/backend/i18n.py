@@ -59,6 +59,7 @@ ENGLISH = {
     "noussut": "increased", "laskenut": "decreased", "pysynyt ennallaan": "unchanged",
     "{label}: {value} {unit} ({month}), {trend} edellisestä ({previous} {unit}, {previous_month}).":
         "{label}: {value} {unit} ({month}), {trend} compared with the previous period ({previous} {unit}, {previous_month}).",
+    "Viimeisimmät arvot: {series}.": "Latest values: {series}.",
     "Sama kaavio on jo olemassa: \"{title}\" (omistaja {owner}{created}). {action}":
         "This chart already exists: \"{title}\" (owner {owner}{created}). {action}",
     ", luotu {date}": ", created {date}",

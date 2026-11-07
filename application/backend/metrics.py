@@ -98,10 +98,18 @@ def _kpi_receipt(kpi_id: str) -> dict[str, Any]:
             "approval_status": k["approval_status"], "unit": k["unit"]}
 
 
+def _month_cell(part: pd.DataFrame, mo: str, col: str, digits: int) -> Any:
+    if mo not in part.index or pd.isna(part.at[mo, col]):
+        return None
+    return round(float(part.at[mo, col]), digits)
+
+
 def _chart(df: pd.DataFrame, dims: list[str], value: str, chart_type: str, metric_name: str) -> dict[str, Any]:
-    """Shape rows for the UI: labels + datasets. Limits to the 8 largest series."""
+    """Shape rows for the UI: labels + datasets, plus a forecast-provenance share per point."""
     if df.empty:
         return {"type": chart_type, "labels": [], "datasets": []}
+    share_col = "forecast_share" if "forecast_share" in df else None
+    pick = [value, share_col] if share_col else [value]
     others = [d for d in dims if d != "month"]
     if "month" in dims:
         labels = sorted(df["month"].unique().tolist())
@@ -110,16 +118,38 @@ def _chart(df: pd.DataFrame, dims: list[str], value: str, chart_type: str, metri
             top = df.groupby("_series")[value].mean().abs().sort_values(ascending=False).head(8).index.tolist()
             datasets = []
             for s in top:
-                part = df[df["_series"] == s].set_index("month")[value]
-                datasets.append({"label": s, "data": [None if pd.isna(part.get(mo)) else round(float(part.get(mo)), 2) for mo in labels]})
+                part = df[df["_series"] == s].set_index("month")[pick]
+                ds = {"label": s, "data": [_month_cell(part, mo, value, 2) for mo in labels]}
+                if share_col:
+                    ds["forecastShare"] = [_month_cell(part, mo, share_col, 3) for mo in labels]
+                datasets.append(ds)
         else:
-            part = df.set_index("month")[value]
-            datasets = [{"label": metric_name, "data": [round(float(part.get(mo)), 2) for mo in labels]}]
+            part = df.set_index("month")[pick]
+            ds = {"label": metric_name, "data": [_month_cell(part, mo, value, 2) for mo in labels]}
+            if share_col:
+                ds["forecastShare"] = [_month_cell(part, mo, share_col, 3) for mo in labels]
+            datasets = [ds]
         return {"type": "line" if chart_type == "line" else chart_type, "labels": labels, "datasets": datasets}
     df = df.sort_values(value, ascending=False).head(20)
     labels = [" · ".join(_label(d, r[d]) for d in dims) or metric_name for _, r in df.iterrows()]
-    return {"type": "bar" if chart_type == "line" else chart_type, "labels": labels,
-            "datasets": [{"label": metric_name, "data": [round(float(v), 2) for v in df[value]]}]}
+    ds = {"label": metric_name, "data": [round(float(v), 2) for v in df[value]]}
+    if share_col:
+        ds["forecastShare"] = [None if pd.isna(s) else round(float(s), 3) for s in df[share_col]]
+    return {"type": "bar" if chart_type == "line" else chart_type, "labels": labels, "datasets": [ds]}
+
+
+def _fc_share(df: pd.DataFrame, cols: list[str], field: str, weighted: bool):
+    """Share of the metric contributed by forecast_like rows, per group (or overall when no cols)."""
+    fc = df["value_type"] != ACTUAL
+    if not cols:
+        if weighted:
+            den = float(df[field].sum())
+            return float(df.loc[fc, field].sum() / den) if den else float("nan")
+        return float(fc.mean())
+    num = df[fc].groupby(cols)[field].sum() if weighted else df[fc].groupby(cols).size()
+    den = df.groupby(cols)[field].sum() if weighted else df.groupby(cols).size()
+    share = num.reindex(den.index).fillna(0.0) / den
+    return share.where(den != 0)
 
 
 def _readable_rows(df: pd.DataFrame, dims: list[str], value: str) -> list[dict[str, Any]]:
@@ -154,15 +184,30 @@ def _compute_monthly(spec: ChartSpec, m: Metric, language: Language) -> dict[str
     renamed = {DIM_FIELD[d]: d for d in dims}
 
     if m.kind in ("sum", "mean"):
-        g = df.groupby(cols)[m.field].agg(m.kind).reset_index() if cols else pd.DataFrame({m.field: [df[m.field].agg(m.kind)]})
+        weighted = m.kind == "sum"
+        if cols:
+            g = df.groupby(cols)[m.field].agg(m.kind).reset_index()
+            g = g.merge(_fc_share(df, cols, m.field, weighted).rename("forecast_share"),
+                        left_on=cols, right_index=True, how="left")
+        else:
+            g = pd.DataFrame({m.field: [df[m.field].agg(m.kind)],
+                              "forecast_share": [_fc_share(df, [], m.field, weighted)]})
         g = g.rename(columns={**renamed, m.field: "value"})
     elif m.kind == "variance":
-        agg = df.groupby(cols)[[m.field, "forecast_m_eur_syn"]].sum().reset_index() if cols else df[[m.field, "forecast_m_eur_syn"]].sum().to_frame().T
+        if cols:
+            agg = df.groupby(cols)[[m.field, "forecast_m_eur_syn"]].sum().reset_index()
+            agg = agg.merge(_fc_share(df, cols, m.field, True).rename("forecast_share"),
+                            left_on=cols, right_index=True, how="left")
+        else:
+            agg = df[[m.field, "forecast_m_eur_syn"]].sum().to_frame().T
+            agg["forecast_share"] = _fc_share(df, [], m.field, True)
         agg["value"] = agg[m.field] - agg["forecast_m_eur_syn"]
-        g = agg.rename(columns=renamed)[[*dims, "value"]]
+        g = agg.rename(columns=renamed)[[*dims, "value", "forecast_share"]]
     elif m.kind == "growth":
         others = [c for c in cols if c != "month"]
         monthly = df.groupby([*others, "month"])[m.field].sum().reset_index().sort_values("month")
+        monthly = monthly.merge(_fc_share(df, [*others, "month"], m.field, True).rename("forecast_share"),
+                                 left_on=[*others, "month"], right_index=True, how="left")
         if others:
             monthly["value"] = monthly.groupby(others)[m.field].pct_change() * 100
         else:
@@ -172,7 +217,7 @@ def _compute_monthly(spec: ChartSpec, m: Metric, language: Language) -> dict[str
         else:
             g = monthly.dropna(subset=["value"]).groupby(others, as_index=False).tail(1) if others else monthly.dropna(subset=["value"]).tail(1)
             warnings.append(text("Kasvu = viimeisin kuukausi ({month}) vs. edellinen.", language, month=g["month"].max() if not g.empty else "-"))
-        g = g.rename(columns=renamed)[[*dims, "value"]]
+        g = g.rename(columns=renamed)[[*dims, "value", "forecast_share"]]
     else:
         raise ValueError(m.kind)
 

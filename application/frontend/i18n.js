@@ -10,7 +10,10 @@ const ENGLISH = {
   'Ei vielä kaavioita. Kysy jotain tehdasroolina.': 'No charts yet. Ask a question using a plant role.',
   'Hyväksyntää odottavat': 'Proposals', 'Sertifiointi': 'Certification', 'Poisto': 'Retirement',
   'Hyväksy': 'Approve', 'Hylkää': 'Reject', '(tai n8n:n kautta)': '(or via n8n)', 'Ei ehdotuksia.': 'No proposals.',
-  'Audit log': 'Audit log', 'Keskustelu': 'Conversation', 'Uusi keskustelu': 'New conversation',
+  'Audit log': 'Audit log',   'Keskustelu': 'Conversation', 'Uusi keskustelu': 'New conversation',
+  'Toteuma (actual-like)': 'Actual (actual-like)', 'Ennuste (forecast-like)': 'Forecast (forecast-like)',
+  'Osittain ennusteperäistä': 'Partially forecast-based',
+  'Sekoittunut väri = osittain ennusteperäistä': 'Blended color = partially forecast-based',
   'Kysy luvuista omin sanoin. Voit jatkaa kysymällä esimerkiksi “entä Suomessa?” tai “miksi?”.':
     'Ask about the figures in your own words. Follow up with “what about Finland?” or “why?”.',
   'Taulukko': 'Table', 'riviä': 'rows', 'Näytä laskenta': 'Show calculation', 'Määritelmä': 'Definition',

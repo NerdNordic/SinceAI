@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from . import config
 from .i18n import LANGUAGES, Language, metric_label
 
-PROMPT_VERSION = "v3-language"
+PROMPT_VERSION = "v5-clarify-followup"
 
 MetricName = Literal[
     "Net Sales", "Net Sales Growth", "Units Shipped", "Inventory Coverage", "On-Time In-Full",
@@ -104,8 +104,12 @@ Rules:
   numbers. In chat mode set metric "UNSUPPORTED".
 - mode "data" when the user wants numbers, a chart, a list or a comparison.
 - Follow-ups ("entä Ruotsissa?", "näytä sama tuotteittain", "entä Plant B?") start from the previous
-  specification and change only what the user changes.
+  specification and change only what the user changes. After a clarification, a bare metric choice
+  (e.g. clicking a suggested metric) inherits the products, markets, plants and dimensions of the
+  question that was clarified.
 - dimensions: "month" for trends over time, "market" per country, "product" per product, "plant" per plant. At most 2.
+- A trend split by market, product or plant (e.g. "kuukausittain markkinoittain") uses BOTH dimensions,
+  e.g. ["month", "market"], with chart_type "line" — one line per series.
 - filters: only products, markets, plants or statuses the user names (now or in the follow-up chain).
   Map country names (also Finnish, e.g. Suomi=FI, Ruotsi=SE, Saksa=DE) to market ids.
 - Running out of stock, what to order, reorder dates, production priorities -> "Replenishment Reorder-By Date".
@@ -243,7 +247,15 @@ def generate_spec(question: str, role: str, history: list[dict[str, Any]] | None
     if cached:
         return _sanitize(ChartSpec.model_validate(cached["spec"]), role, language), {"cached": True, "hints": cached.get("hints", [])}
     hints = _kpi_hints(question)
-    spec = _call_gemini(_prompt(question, role, hints, history, language), language)
+    try:
+        spec = _call_gemini(_prompt(question, role, hints, history, language), language)
+    except Exception:  # noqa: BLE001 - a rehearsed question keeps working from an older cache entry during a Gemini outage
+        stale = db.llm_cache.find_one({"kind": "spec", "question": question, "role": role},
+                                      sort=[("created_at", -1)])
+        if not stale:
+            raise
+        return _sanitize(ChartSpec.model_validate(stale["spec"]), role, language), \
+            {"cached": True, "fallback": True, "hints": stale.get("hints", [])}
     db.llm_cache.replace_one({"_id": key}, {"_id": key, "kind": "spec", "question": question, "role": role,
                                             "spec": spec.model_dump(), "hints": hints, "model": config.GEMINI_MODEL,
                                             "created_at": datetime.now(timezone.utc)}, upsert=True)

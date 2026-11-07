@@ -62,7 +62,7 @@ not a guarantee that a remote model is available to your account.
 | `MONGODB_URI` | Empty | MongoDB connection string; required for database-backed operations. |
 | `MONGODB_DB` | `bayer_hackathon` | Source and application-state database. |
 | `GEMINI_API_KEY` | Empty | Required for new Gemini generation and embeddings. |
-| `GEMINI_MODEL` | `gemini-2.5-flash` | Generation model; configure an account-supported model. |
+| `GEMINI_MODEL` | `gemini-3.5-flash` | Generation model; configure an account-supported model. |
 | `DEMO_PLANT` | `Plant-A` | Default plant for the three factory roles. |
 | `TODAY` | System date | Optional ISO date for deterministic demo risk statuses; `.env.example` pins `2026-11-06`. |
 | `REVIEW_DAYS` | `90` | Days until a newly registered chart's review date. |
@@ -171,6 +171,7 @@ Run from this folder:
 $env:N8N_WEBHOOK_URL = ''
 & '..\.venv\Scripts\python.exe' -m pytest -q
 node tests/frontend/preferences.test.cjs
+node tests/frontend/chart_colors.test.cjs
 & '..\.venv\Scripts\python.exe' -m pip check
 ```
 
@@ -178,8 +179,9 @@ Use a separate test terminal. Clearing `N8N_WEBHOOK_URL` there prevents an inher
 live webhook configuration from sending notifications during proposal tests.
 `requirements.txt` contains runtime dependencies. `requirements-dev.txt` adds
 pytest, HTTPX and mongomock. Root `pyproject.toml` configures test discovery/imports.
-The 19 backend tests use the included workbook and fake services; the 4 Node
-checks use simulated browser APIs. Neither is a full visual browser test.
+The backend tests use the included workbook and fake services; the Node checks
+(preferences and chart-color tests) use simulated browser APIs.
+Neither is a full visual browser test.
 `tools/check_vector_search.py` is a separate live diagnostic, not part of the offline suite.
 
 ## Module map
