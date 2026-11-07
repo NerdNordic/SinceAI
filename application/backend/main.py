@@ -63,11 +63,11 @@ def get_briefing(role: str, language: Language = "en"):
 
 
 @app.get("/api/briefing/{role}/card/{key}")
-def get_card_detail(role: str, key: str):
+def get_card_detail(role: str, key: str, language: Language = "en"):
     if role not in config.ROLES:
         raise HTTPException(404, "unknown role")
     try:
-        return card_detail_mod.card_detail(role, key)
+        return card_detail_mod.card_detail(role, key, language)
     except KeyError:
         raise HTTPException(404, "unknown card")
 

@@ -28,14 +28,14 @@ def _fi(v):
     return str(v).replace(".", ",")
 
 
-def _with_targets(cards):
+def _with_targets(cards, language):
     for c in cards:
         t = config.CARD_TARGETS.get(c["key"])
         if t and c.get("value") is not None:
             c["target"] = t["target"]
             c["lower_is_better"] = t["lower_is_better"]
         if c["key"] in ASK_HINTS:
-            c["ask_hint"] = ASK_HINTS[c["key"]]
+            c["ask_hint"] = text(ASK_HINTS[c["key"]], language)
     return cards
 
 
@@ -139,6 +139,6 @@ def briefing(role: str, language: Language = "en") -> dict[str, Any]:
             {"key": "volume", "label": text('Tehtaan volyymi', language), "value": weekly, "unit": text("kpl/vko", language)},
         ]
         items = [_item(x, language) for x in rows[:5]]
-    cards = _with_targets(cards)
+    cards = _with_targets(cards, language)
     return {"role": role_label(role, language), "plant": plant, "cards": cards, "items": items,
             "freshness": freshness, "deviations": _deviations(cards, language)}

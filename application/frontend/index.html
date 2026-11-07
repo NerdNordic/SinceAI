@@ -128,8 +128,8 @@ try {
   .reason.muted { font-size: 13px; margin-top: 0; }
   .ask { margin-top: 12px; }
   .viewtabs { display: flex; gap: 6px; margin-bottom: 14px; }
-  .viewtabs button { border: 1px solid var(--line); background: var(--panel); padding: 7px 14px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 14px; color: var(--ink); }
-  .viewtabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .viewtabs button { border: 1px solid var(--line); background: var(--panel); padding: 7px 12px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 14px; color: var(--ink); }
+  .viewtabs button.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
   .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   @media (max-width: 1250px) { .tiles { grid-template-columns: 1fr; } }
   .tile { border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; background: var(--panel); }
@@ -165,7 +165,7 @@ try {
           <div class="v">{{ fmt(c.value) }}<small v-if="c.unit" class="muted"> {{ c.unit }}</small></div>
           <div class="delta" v-if="c.target != null" :class="deltaTone(c)">{{ deltaText(c) }}</div>
           <div class="l">{{ c.label }}</div>
-          <button v-if="c.ask_hint" class="btn ghost kysy" @click.stop="askFrom(c.ask_hint)">Kysy tästä</button>
+          <button v-if="c.ask_hint" class="btn ghost kysy" @click.stop="askFrom(c.ask_hint)">{{ t('Kysy tästä') }}</button>
         </div>
       </div>
       <ul class="items" v-if="brief.items.length">
@@ -178,7 +178,7 @@ try {
       <div class="devs" v-if="brief.deviations && brief.deviations.length">
         <div v-for="d in brief.deviations" :key="d.card_key" class="dev" :class="d.severity">{{ d.message }}</div>
       </div>
-      <div class="devs ok" v-else-if="brief.deviations">Ei poikkeamia — kaikki tavoitteissa.</div>
+      <div class="devs ok" v-else-if="brief.deviations">{{ t('Ei poikkeamia — kaikki tavoitteissa.') }}</div>
       <div class="fresh" v-if="brief.freshness">{{ brief.freshness }}</div>
     </section>
 
@@ -224,41 +224,41 @@ try {
 
       <template v-else>
       <div class="viewtabs">
-        <button :class="{on: view === 'dash'}" @click="setView('dash')">Kojelauta</button>
-        <button :class="{on: view === 'chat'}" @click="setView('chat')">Keskustelu</button>
+        <button :class="{on: view === 'dash'}" @click="setView('dash')">{{ t('Kojelauta') }}</button>
+        <button :class="{on: view === 'chat'}" @click="setView('chat')">{{ t('Keskustelu') }}</button>
       </div>
 
       <div class="panel" v-if="view === 'dash'">
-        <h2>Kojelauta · {{ roleLabel }}</h2>
-        <div class="fresh" v-if="dash">Sertifioidut KPI:t: {{ dash.kpi_ids.join(', ') || '–' }} · {{ dash.tiles.length }} kaaviota · luvut lasketaan aina tuoreesta datasta</div>
-        <div class="spinner" v-if="dashBusy">Haetaan sertifioituja kaavioita…</div>
+        <h2>{{ t('Kojelauta') }} · {{ roleLabel }}</h2>
+        <div class="fresh" v-if="dash">{{ t('Sertifioidut KPI:t') }}: {{ dash.kpi_ids.join(', ') || '–' }} · {{ dash.tiles.length }} {{ t('kaaviota') }} · {{ t('luvut lasketaan aina tuoreesta datasta') }}</div>
+        <div class="spinner" v-if="dashBusy">{{ t('Haetaan sertifioituja kaavioita…') }}</div>
         <div class="empty muted" v-if="dash && !dash.tiles.length">
-          Ei vielä sertifioituja kaavioita tälle roolille. Kysy lukuja keskustelussa ja pyydä Data Stewardia sertifioimaan ne.
-          <div style="margin-top:10px"><button class="btn ghost" @click="setView('chat')">Siirry keskusteluun</button></div>
+          {{ t('Ei vielä sertifioituja kaavioita tälle roolille. Kysy lukuja keskustelussa ja pyydä Data Stewardia sertifioimaan ne.') }}
+          <div style="margin-top:10px"><button class="btn ghost" @click="setView('chat')">{{ t('Siirry keskusteluun') }}</button></div>
         </div>
         <div class="tiles" v-if="dash">
-          <div v-for="t in dash.tiles" :key="t.fingerprint" class="tile">
+          <div v-for="tile in dash.tiles" :key="tile.fingerprint" class="tile">
             <div class="tile-head">
-              <b>{{ t.title }}</b>
-              <span class="pill" v-for="k in t.kpi_ids" :key="k">{{ k }}</span>
-              <span class="pill pin" v-if="t.pinned" title="Data Steward kiinnitti tämän kojelaudalle">kiinnitetty</span>
+              <b>{{ tile.title }}</b>
+              <span class="pill" v-for="k in tile.kpi_ids" :key="k">{{ k }}</span>
+              <span class="pill pin" v-if="tile.pinned" :title="t('Data Steward kiinnitti tämän kojelaudalle')">{{ t('kiinnitetty') }}</span>
             </div>
-            <div class="chartbox" v-if="t.chart && t.chart.type !== 'table'"><canvas :id="'d' + t.fingerprint"></canvas></div>
-            <div class="fc-legend" v-if="t.chart && t.chart.type !== 'table' && hasForecast(t.chart)">
+            <div class="chartbox" v-if="tile.chart && tile.chart.type !== 'table'"><canvas :id="'d' + tile.fingerprint"></canvas></div>
+            <div class="fc-legend" v-if="tile.chart && tile.chart.type !== 'table' && hasForecast(tile.chart)">
               <span class="dot actual"></span>{{ legendActual }}<span class="dot forecast"></span>{{ legendForecast }}<span>·</span>{{ legendBlend }}
             </div>
-            <div v-if="t.chart && t.chart.type === 'table'" style="overflow:auto;max-height:320px"><table>
-              <tr><th v-for="k in Object.keys(t.rows[0] || {})">{{ k }}</th></tr>
-              <tr v-for="r in t.rows.slice(0, 15)"><td v-for="v in Object.values(r)">{{ typeof v === 'number' ? fmt(v) : v }}</td></tr>
+            <div v-if="tile.chart && tile.chart.type === 'table'" style="overflow:auto;max-height:320px"><table>
+              <tr><th v-for="k in Object.keys(tile.rows[0] || {})">{{ t(k) }}</th></tr>
+              <tr v-for="r in tile.rows.slice(0, 15)"><td v-for="v in Object.values(r)">{{ typeof v === 'number' ? fmt(v) : t(v) }}</td></tr>
             </table></div>
-            <div class="warn" v-if="t.error">Laskenta epäonnistui: {{ t.error }}</div>
-            <details v-if="t.receipt"><summary>Laskenta</summary>
+            <div class="warn" v-if="tile.error">{{ t('Laskenta epäonnistui') }}: {{ tile.error }}</div>
+            <details v-if="tile.receipt"><summary>{{ t('Laskenta') }}</summary>
               <dl class="receipt">
-                <dt>KPI</dt><dd>{{ t.receipt.kpi.id }} {{ t.receipt.kpi.name }} <span class="pill">{{ t.receipt.kpi.definition_status }}</span></dd>
-                <dt>Määritelmä</dt><dd>{{ t.receipt.definition }}</dd>
-                <template v-if="t.receipt.source"><dt>Lähde</dt><dd>{{ t.receipt.source.sheet || t.receipt.source.collection }} · {{ t.receipt.source.rows_used }} riviä</dd></template>
-                <template v-if="t.receipt.warnings && t.receipt.warnings.length"><dt>Huomiot</dt><dd class="warn"><div v-for="w in t.receipt.warnings">{{ w }}</div></dd></template>
-                <dt>Sormenjälki</dt><dd>{{ t.fingerprint }}</dd>
+                <dt>KPI</dt><dd>{{ tile.receipt.kpi.id }} {{ t(tile.receipt.kpi.name) }} <span class="pill">{{ t(tile.receipt.kpi.definition_status) }}</span></dd>
+                <dt>{{ t('Määritelmä') }}</dt><dd>{{ tile.receipt.definition }}</dd>
+                <template v-if="tile.receipt.source"><dt>{{ t('Lähde') }}</dt><dd>{{ tile.receipt.source.sheet || tile.receipt.source.collection }} · {{ tile.receipt.source.rows_used }} {{ t('riviä') }}</dd></template>
+                <template v-if="tile.receipt.warnings && tile.receipt.warnings.length"><dt>{{ t('Huomiot') }}</dt><dd class="warn"><div v-for="w in tile.receipt.warnings">{{ w }}</div></dd></template>
+                <dt>{{ t('Sormenjälki') }}</dt><dd>{{ tile.fingerprint }}</dd>
               </dl>
             </details>
           </div>
@@ -322,29 +322,29 @@ try {
 
   <div class="overlay" v-if="modal || modalBusy" @click.self="closeCard()">
     <div class="modal" v-if="modal">
-      <button class="close" @click="closeCard()" aria-label="Sulje">✕</button>
+      <button class="close" @click="closeCard()" :aria-label="t('Sulje')">✕</button>
       <h3>{{ modal.label }}</h3>
       <div class="modalval">{{ fmt(modal.value) }}<small v-if="modal.unit"> {{ modal.unit }}</small></div>
       <div class="delta" v-if="modal.target != null" :class="deltaTone(modal)">{{ deltaText(modal) }}</div>
       <p class="desc">{{ modal.description }}</p>
-      <div class="kpi" v-if="modal.kpi"><span class="pill">{{ modal.kpi.id }}</span> {{ modal.kpi.name }} · {{ modal.kpi.definition }}</div>
+      <div class="kpi" v-if="modal.kpi"><span class="pill">{{ modal.kpi.id }}</span> {{ t(modal.kpi.name) }} · {{ modal.kpi.definition }}</div>
       <div class="chartbox" v-if="modal.chart && modal.chart.labels.length"><canvas id="modalchart"></canvas></div>
       <div class="fc-legend" v-if="hasForecast(modal.chart)">
         <span class="dot actual"></span>{{ legendActual }}<span class="dot forecast"></span>{{ legendForecast }}<span>·</span>{{ legendBlend }}
       </div>
       <details v-if="modal.rows && modal.rows.length" :open="!(modal.chart && modal.chart.labels.length)">
-        <summary>Rivit ({{ modal.rows.length }})</summary>
+        <summary>{{ t('Rivit') }} ({{ modal.rows.length }})</summary>
         <div style="overflow:auto;max-height:300px"><table>
-          <tr><th v-for="k in Object.keys(modal.rows[0])">{{ k }}</th></tr>
-          <tr v-for="r in modal.rows"><td v-for="v in Object.values(r)">{{ typeof v === 'number' ? fmt(v) : v }}</td></tr>
+          <tr><th v-for="k in Object.keys(modal.rows[0])">{{ t(k) }}</th></tr>
+          <tr v-for="r in modal.rows"><td v-for="v in Object.values(r)">{{ typeof v === 'number' ? fmt(v) : t(v) }}</td></tr>
         </table></div>
       </details>
       <div class="row">
-        <button v-if="modal.ask_hint" class="btn ghost" @click="askFrom(modal.ask_hint); closeCard()">Kysy tästä chatissa</button>
+        <button v-if="modal.ask_hint" class="btn ghost" @click="askFrom(modal.ask_hint); closeCard()">{{ t('Kysy tästä chatissa') }}</button>
         <span class="muted" v-if="modal.source">{{ modal.source }}</span>
       </div>
     </div>
-    <div class="modal" v-else-if="modalBusy"><div class="spinner">Ladataan kortin tietoja…</div></div>
+    <div class="modal" v-else-if="modalBusy"><div class="spinner">{{ t('Ladataan kortin tietoja…') }}</div></div>
   </div>
 </div>
 
@@ -564,7 +564,7 @@ createApp({
       this.modalBusy = true;
       this.modal = null;
       try {
-        const res = await fetch('/api/briefing/' + this.role + '/card/' + c.key);
+        const res = await fetch('/api/briefing/' + this.role + '/card/' + c.key + '?language=' + this.language);
         if (!res.ok) throw new Error(await res.text());
         const d = await res.json();
         if (seq !== this.cardSeq) return;

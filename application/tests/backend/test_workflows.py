@@ -281,10 +281,14 @@ def test_meter_and_briefings(client):
     b = client.get("/api/briefing/tehtaan_johtaja").json()
     otif = next(c for c in b["cards"] if c["key"] == "otif")
     assert otif["target"] == 95.0 and otif["lower_is_better"] is False
-    assert otif["ask_hint"] == "Näytä toimitusvarmuus kuukausittain"
+    assert otif["ask_hint"] == "Show monthly delivery reliability"
     urgent = next(c for c in b["cards"] if c["key"] == "urgent")
     assert urgent["target"] == 0 and urgent["lower_is_better"] is True
-    assert urgent["ask_hint"] == "Mitkä tilaukset pitää tehdä tällä viikolla?"
+    assert urgent["ask_hint"] == "Which orders need to be placed this week?"
+    fi = client.get("/api/briefing/tehtaan_johtaja?language=fi").json()
+    fi_hints = {c["key"]: c["ask_hint"] for c in fi["cards"] if "ask_hint" in c}
+    assert fi_hints["otif"] == "Näytä toimitusvarmuus kuukausittain"
+    assert fi_hints["urgent"] == "Mitkä tilaukset pitää tehdä tällä viikolla?"
 
 
 def test_briefing_deviations_follow_targets(client, monkeypatch):
@@ -311,7 +315,13 @@ def test_card_detail(client):
     assert d["description"] and d["kpi"]["id"] == "KPI-020" and d["kpi"]["definition"]
     assert d["chart"]["type"] == "line" and d["chart"]["labels"]
     assert d["chart"]["datasets"][0]["data"][-1] == pytest.approx(otif["value"], abs=0.051)
-    assert d["target"] == 95.0 and d["ask_hint"] and d["source"]
+    assert d["target"] == 95.0 and d["ask_hint"] == "Show monthly delivery reliability" and d["source"]
+    assert "On-Time In-Full" in d["description"] and "rows" in d["source"]
+    assert d["kpi"]["definition"] == "On-time in-full deliveries (%), averaged over rows."
+    fi = client.get("/api/briefing/tehtaan_johtaja/card/otif?language=fi").json()
+    assert fi["ask_hint"] == "Näytä toimitusvarmuus kuukausittain"
+    assert "Toimitusvarmuus" in fi["description"] and "riviä" in fi["source"]
+    assert fi["kpi"]["definition"] == "Ajallaan ja täysimääräisenä toimitettujen osuus (%), rivien keskiarvo."
     urgent = next(c for c in b["cards"] if c["key"] == "urgent")
     u = client.get("/api/briefing/tehtaan_johtaja/card/urgent").json()
     assert len(u["rows"]) == urgent["value"] and u["chart"]["labels"]
