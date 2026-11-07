@@ -1,192 +1,69 @@
-# Build Less, Build Better — AI for Governed Analytics
+# SinceAI architecture
 
-Since AI Hackathon 2026 (Bayer challenge). An AI assistant that turns business questions into
-**fewer, better, governed analytics products** — recommending reuse, consolidation, migration or
-retirement of BI assets instead of creating another dashboard by default, always with cited
-evidence and human-approval gates.
+## Request path
 
-Built on the synthetic Bayer builder data pack (`bayer_sinceai.db`, 22 tables, 8,120 rows).
-No real Bayer data is represented; all names, usage and figures are synthetic.
+1. The Vue interface in `fastapi+vue/app/static/` calls the same FastAPI process.
+2. `app/main.py` validates API input, including the `en`/`fi` language allowlist.
+3. `app/spec.py` asks Gemini for a validated `ChartSpec`, sanitizes filters against
+   catalog data and caches responses by model, prompt version, context and language.
+   Selected response language is also passed as a Gemini system instruction.
+4. `app/engine.py` identifies charts by metric, dimensions and filter keys. The
+   fingerprint is independent of language and filter values. It chooses REUSE,
+   EXTEND, ANSWER, BUILD or CLARIFY. Chat-only turns do not count as chart requests.
+5. `app/metrics.py` computes governed numbers from MongoDB data. `reorder/` computes
+   inventory coverage, runout dates, replenishment deadlines and risk status.
+6. Gemini words a short response from computed results; deterministic localized
+   fallbacks handle unavailable answer generation. Results include definitions,
+   source rows, filters and warnings, with raw CSV downloads.
 
-## Quick start
+## Data and state
 
-```bash
-pip install -r govagent/requirements.txt \
-            -r streamlit_app/requirements.txt \
-            -r factory/requirements.txt   # stdlib only, installs nothing
-cat govagent/.env.example streamlit_app/.env.example > .env   # then edit: endpoint + model
-# (Windows PowerShell: Get-Content govagent/.env.example,streamlit_app/.env.example > .env)
+The workbook is imported directly into MongoDB by `seed_mongo.py`. Source
+provenance is retained in `_source`. Canonical KPI aliases and asset enrichment
+support vector search in `kpi_catalog`, `analytics_assets` and `chart_registry`.
+`vector_store.py` is the single implementation used by the importer, application
+and search diagnostics. Numeric computation uses ordinary queries, not embeddings.
 
-streamlit run streamlit_app   # chat UI + governance audit (run from the repo root;
-                              # localhost-only, see below)
-# or headless:
-python cli.py audit          # full governance audit report
-python cli.py ask "Can we build a launch dashboard for Lynkuet with market access and adoption?"
-python cli.py demo           # canned demo questions
-python smoke_test_tools.py   # verifies every tool against the DB (no LLM needed)
-python smoke_test_factory.py # verifies the factory-assistant stub contract (no LLM/n8n needed)
-```
+The application writes `chart_registry`, `request_log`, `results`, `conversations`,
+`proposals`, `audit_log` and `llm_cache`. Registry entries retain chart ownership,
+usage, lifecycle status and localized titles. Reusing a chart does not create a
+second chart when the language or selected filter values change.
 
-Set `GOVAGENT_PROVIDER=stub` to exercise the agent loop and UI with no LLM endpoint
-(offline rehearsal mode).
+`assumptions.json` defines replenishment assumptions and their version/fingerprint.
+The included workbook is also the offline regression fixture. Source workbook and
+challenge documents remain in the data-pack directory.
 
-### Local-only binding (no network exposure)
+## Presentation
 
-Streamlit binds to all network interfaces by default and prints a `Network URL` — on a
-corporate LAN that means the app is reachable by others. This repo pins it to loopback via
-`.streamlit/config.toml` (`server.address = 127.0.0.1`), so plain `streamlit run streamlit_app`
-listens only on your machine.
+Vue 3 and Chart.js are loaded from pinned CDN URLs; there is no Node build step.
+CSS variables control appearance. Plain JavaScript dictionaries translate UI
+labels, statuses, examples and chart labels. Browser storage remembers language
+and theme, with safe defaults if storage is unavailable. Existing conversation
+messages are preserved in the language in which they were written.
 
-Alternatives, if you ever want to override:
+Backend presentation translations live in `app/i18n.py`. They do not change metric
+identifiers, source queries, fingerprints or computed values. API language defaults
+to English, and unsupported language values are rejected before calling Gemini.
 
-- one-off CLI flag: `streamlit run streamlit_app --server.address 127.0.0.1`
-- env var: `STREAMLIT_SERVER_ADDRESS=127.0.0.1` (`set`/`setx` on Windows, `export` in bash)
-- to deliberately share on your LAN: `streamlit run streamlit_app --server.address 0.0.0.0`
+## Governance integration
 
-## Factory analytics assistant (multi-page UI, `streamlit_app/`)
+The optional `n8n/build-less-governance-scan.json` scans the same MongoDB registry,
+proposes certification/retirement and records audit entries. The backend can also
+notify an optional approval webhook. Data-steward decisions update proposal and
+chart lifecycle state. See `n8n/N8N.md` for configuration.
 
-Role-based assistant implementing the `img-as-text` concept (steps 1-7) on top of the
-same Streamlit entry point. n8n is the main API: the frontend only calls n8n webhooks
-(question → chart spec via Gemini, fingerprint lookup in the chart registry, canonical
-KPI computed in code, data from MongoDB Atlas) and `N8N_PROVIDER=stub` (default) runs the
-whole UI offline on canned flows.
+## Runtime and verification boundaries
 
-- **Etusivu**: role selection — Tehtaan johtaja / Vuoropäällikkö / Tuotantotyöntekijä /
-  Data steward (steward opens the existing governance audit + triage flows).
-- **Aamubriiffi**: role's key figures with deviation flags and per-KPI freshness
-  (fresh 🟢 / stale 🟠), deviations by severity, "Kysy tästä" jumps into chat.
-- **Kysy**: chat that renders the build-less verdict — ♻️ REUSE (existing chart, updated
-  data) · ➕ EXTEND (existing + new filter/dimension) · 💬 ANSWER (one-off number +
-  mini-chart, not saved) · 🆕 BUILD (new governed metric, flagged for the Data steward) —
-  with clarify questions suggesting canonical KPIs, plus a receipt (formula, sources,
-  assumption version, freshness) and raw-data CSV download on every chart.
-- Sidebar **build-less meter**: chat requests vs new charts (step 5.a).
+Runtime packages are in `fastapi+vue/requirements.txt`. Test-only packages are in
+`requirements-dev.txt`. Root `pyproject.toml` scopes pytest to the supported suite
+and makes the application modules importable from the repository root.
 
-Webhook contract (request/response JSON) is documented in `factory/n8n.py`; the stub
-(`factory/stub.py`) is the reference implementation for n8n workflow authors. Steps 8-9
-(chart lifecycle, n8n playbook for retire/certify) are planned, not built.
+The backend regression suite loads synthetic workbook data into mongomock and
+replaces Gemini. The Node checks exercise language/theme-facing frontend logic
+without npm dependencies. Live search diagnostics are separate because they call
+Gemini/Atlas and their chart test temporarily writes to the registry.
 
-Demo questions for the stub: "Näytä OEE viimeiset 14 päivää" (reuse), "OEE yövuoroissa"
-(extend), "Paljonko tuotettiin viime yönä?" (answer), "Energiankulutus linjoittain"
-(build), "tuotanto?" (clarify).
-
-## Architecture
-
-```
-Business user
-   │  question ("we need a dashboard for X")
-   ▼
-Streamlit app / CLI ──► govagent/loop.py (tool-calling agent loop, max 12 iterations)
-   │      │
-   │      │                 Factory roles (director/shift supervisor/worker)
-   │      │                    │  question or "show me KPI X"
-   │      │                    ▼
-   │      │              factory/n8n.py ── stub (canned demo) or n8n webhooks ──►
-   │      │                 question → chart spec → fingerprint registry →
-   │      │                 canonical KPI computed in code (MongoDB Atlas) →
-   │      │                 chart + receipt + raw CSV
-   │      ▼
-   │               govagent/llm.py  (any OpenAI-compatible endpoint via env vars;
-   │                                 function calling; offline stub provider)
-   │                        │
-   │                        ▼
-   └──────────────► govagent/tools.py  (12 evidence-first tools over read-only SQLite)
-                                    │
-                                     ▼
-                        bayer_sinceai.db (Analytics_Assets, KPI_Catalog, Semantic_Models,
-                         Asset_Usage, Lineage_Edges, Governance_Signals, Migration_Backlog,
-                         Business_Requests + pharma context sheets)
-```
-
-### The 12 tools (govagent/tools.py)
-
-| Tool | Purpose |
-|---|---|
-| `estate_overview` | estate scale and platform × lifecycle split |
-| `find_kpi_conflicts` | canonical metrics with conflicting KPI variants, unapproved variants, assets mixing definitions |
-| `find_assets_using_kpi` | resolve a metric to its variants and the assets using each (approval status) |
-| `find_duplicate_assets` | identical-scope groups, cross-platform overlap, duplicate names |
-| `asset_report` | one asset: usage decile, ownership, KPIs, signals, DQ issues, lineage |
-| `blast_radius` | downstream exposure of a semantic model |
-| `migration_review` | backlog path/target/complexity + migrate-vs-retire usage sanity flags |
-| `ground_metric` | is a metric computable from context data (grounded / derived / not grounded) |
-| `find_reuse_candidates` | active assets already covering a product × market × KPI-domain scope |
-| `usage_stats` | monthly history, decile, momentum |
-| `similar_requests` | match request text to known request templates |
-| `run_readonly_sql` | SELECT/WITH-only escape hatch (validator + row cap, `mode=ro` connection) |
-
-Every tool returns `{summary, evidence[], data}`; the agent is required by its system prompt to
-cite that evidence (asset IDs AST-xxx, KPI IDs KPI-xxx, model IDs SM-xxx, exact numbers).
-
-### Two flows
-
-1. **Governance audit** (`cli.py audit` / sidebar button): the auditor agent proactively scans
-   for KPI conflicts, unapproved KPI usage, duplicates, missing owners, high-reach unendorsed
-   assets, failed-refresh exposure, risky retirements, migration sanity and ungrounded metrics.
-   Output: markdown report + JSON issue list with severity, evidence, recommended action and
-   `requires_human_approval`.
-2. **Request triage** (chat / `cli.py ask`): the 6-step recommended flow — identify product/
-   market/metric → resolve to governed KPIs (flag conflicts + unapproved variants + data gaps)
-   → find existing coverage → check usage/ownership/lineage/governance → verdict via the
-   decision ladder: **REUSE > CONSOLIDATE > MIGRATE > RETIRE > NEW BUILD**, with hard guardrails
-   (never retire top-decile-usage or embedded assets without flagging; never new-build while
-   covering active assets exist; always flag not-grounded metrics).
-
-## Governance controls
-
-- **Read-only by construction**: SQLite opened `mode=ro`; the SQL tool rejects non-SELECT and
-  multi-statement input; row and cell caps.
-- **Advisory only**: the agent recommends; every actionable issue carries
-  `requires_human_approval`. Nothing is executed against the estate.
-- **Evidence-first**: recommendations must cite IDs and numbers returned by tools; the
-  system prompts forbid inventing values and require the synthetic-data disclaimer.
-- **KPI consistency**: metric resolution always surfaces conflicting variants and unapproved
-  variants, steering users to canonical approved definitions.
-- **Decision ladder + guardrails** encoded in the system prompt (see `govagent/prompts.py`).
-
-## Data assumptions
-
-- All data is synthetic (Since AI 2026 builder pack). Usage windows: 2026-01..2026-10.
-- KPI grounding map (`govagent/tools.py`, `KPI_GROUNDING`) encodes which canonical metrics are
-  computable from the context sheets: 8 grounded, 3 derived, 7 not grounded (e.g. Budget
-  Variance and Gross-to-Net Rate have no backing columns in the pack).
-- Usage deciles (bottom/top 10%) are computed estate-wide from `Asset_Usage` totals.
-- Business requests are templated (150 requests, 10 distinct texts); product/market contexts
-  are carried as structured columns, not derived from the text.
-
-## Enterprise-BI integration path (production)
-
-The tool layer is the only part that touches data; swapping it for real APIs keeps the agent,
-prompts and UI unchanged:
-
-| Prototype (SQLite) | Production |
-|---|---|
-| `Analytics_Assets`, `Workspaces` | Power BI REST / Fabric APIs (dashboards, reports, workspaces) |
-| `Semantic_Models`, `Lineage_Edges` | Fabric/Purview lineage + semantic model metadata |
-| `Asset_Usage` | Power BI activity log / usage metrics |
-| `KPI_Catalog` | Governed metric store / Purview catalog |
-| `Governance_Signals`, `Data_Quality` | Purview scans, quality rules, endorsement state |
-| `Migration_Backlog` | ITSM/change backlog |
-| pharma context sheets | governed data warehouse / Fabric lakehouse tables |
-
-Governance controls carry over: read-only service accounts, approval workflow before any
-lifecycle change, evidence logging of every tool call (the agent already returns a full trace).
-
-## Repository layout
-
-```
-govagent/            agent package (tools, llm, prompts, loop) + standalone
-                     requirements.txt (openai) and .env.example (GOVAGENT_*)
-factory/             n8n webhook client + offline stub (backend transport contract);
-                     requirements.txt documents the stdlib-only dependency set
-streamlit_app/       Streamlit UI package: entrypoint (streamlit_app.py), pages/
-                     (home/briefing/ask/steward), session state + page paths (state.py),
-                     chart rendering (charts.py), role definitions (roles.py), standalone
-                     requirements.txt (streamlit, pandas, openai) and .env.example
-cli.py               headless CLI (audit / ask / call / tools / demo)
-smoke_test_tools.py  36 assertions over the tool layer (no LLM needed)
-smoke_test_factory.py stub-contract assertions for the factory assistant (no LLM/n8n)
-explore_bayer_db.py  exploratory analysis that produced the detection logic + findings.json
-some_findings.md     estate profile (the domain analysis behind the agent's checks)
-check_mongo_import.py one-off SQLite↔MongoDB parity check (requires pip install pymongo)
-```
+This remains a local prototype: role selection is not authentication, and the
+callback secret does not protect every API route. Source queries, calculations,
+current retry behavior and database sessions were preserved during the cleanup.
+Do not expose the server to a shared network without a separate security review.

@@ -6,7 +6,6 @@ and every result carries a receipt: KPI, definition, source rows, filters, warni
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,6 +16,7 @@ import pandas as pd
 from . import config
 from .db import get_db, lookups
 from .spec import ChartSpec
+from .i18n import Language, calculation_steps, flag_label, metric_label, text, transport_label
 
 ACTUAL = "actual_like_synthetic"
 ROOT = Path(__file__).resolve().parent.parent
@@ -133,7 +133,7 @@ def _readable_rows(df: pd.DataFrame, dims: list[str], value: str) -> list[dict[s
 
 # --------------------------------------------------------------------------- monthly metrics
 
-def _compute_monthly(spec: ChartSpec, m: Metric) -> dict[str, Any]:
+def _compute_monthly(spec: ChartSpec, m: Metric, language: Language) -> dict[str, Any]:
     db = get_db()
     base = _base_query(spec)
     query = dict(base)
@@ -143,10 +143,10 @@ def _compute_monthly(spec: ChartSpec, m: Metric) -> dict[str, Any]:
     df = pd.DataFrame(list(db.product_market_monthly.find(query, fields)))
     warnings: list[str] = []
     if df.empty:
-        return _empty(spec, m, query, "Valinnoilla ei löytynyt rivejä.")
+        return _empty(spec, m, query, text("Valinnoilla ei löytynyt rivejä.", language), language)
     df = _with_plant(df, spec)
     if df.empty:
-        return _empty(spec, m, query, "Valitulla tehtaalla ei löytynyt rivejä.")
+        return _empty(spec, m, query, text("Valitulla tehtaalla ei löytynyt rivejä.", language), language)
     df["month"] = pd.to_datetime(df["month"]).dt.strftime("%Y-%m")
 
     dims = [d for d in spec.dimensions if d in DIM_FIELD]
@@ -171,28 +171,29 @@ def _compute_monthly(spec: ChartSpec, m: Metric) -> dict[str, Any]:
             g = monthly.dropna(subset=["value"])
         else:
             g = monthly.dropna(subset=["value"]).groupby(others, as_index=False).tail(1) if others else monthly.dropna(subset=["value"]).tail(1)
-            warnings.append(f"Kasvu = viimeisin kuukausi ({g['month'].max() if not g.empty else '-'}) vs. edellinen.")
+            warnings.append(text("Kasvu = viimeisin kuukausi ({month}) vs. edellinen.", language, month=g["month"].max() if not g.empty else "-"))
         g = g.rename(columns=renamed)[[*dims, "value"]]
     else:
         raise ValueError(m.kind)
 
     forecast_rows = int((df["value_type"] != ACTUAL).sum())
     if forecast_rows and not spec.actuals_only:
-        warnings.append(f"{forecast_rows}/{len(df)} lähderiviä on ennustetyyppisiä (forecast_like), ei toteumaa.")
+        warnings.append(text("{count}/{total} lähderiviä on ennustetyyppisiä (forecast_like), ei toteumaa.",
+                             language, count=forecast_rows, total=len(df)))
     if spec.actuals_only:
         excluded_q = {**base, "value_type": {"$ne": ACTUAL}}
         ex = pd.DataFrame(list(db.product_market_monthly.find(excluded_q, {"_id": 0, "product_id": 1, "market_id": 1})))
         n_ex = len(_with_plant(ex, spec)) if not ex.empty else 0
         if n_ex:
-            warnings.append(f"{n_ex} ennustetyyppistä riviä jätettiin pois (vain toteuma).")
+            warnings.append(text("{count} ennustetyyppistä riviä jätettiin pois (vain toteuma).", language, count=n_ex))
 
     return {
-        "metric": spec.metric, "unit": m.unit,
-        "chart": _chart(g, dims, "value", spec.chart_type, spec.metric),
+        "metric": spec.metric, "unit": text(m.unit, language),
+        "chart": _chart(g, dims, "value", spec.chart_type, metric_label(spec.metric, language)),
         "rows": _readable_rows(g, dims, "value"),
         "receipt": {
             "kpi": _kpi_receipt(m.kpi_id),
-            "definition": m.definition,
+            "definition": text(m.definition, language),
             "source": {"collection": "product_market_monthly", "sheet": "Product_Market_Monthly",
                        "rows_used": int(len(df)), "forecast_like_rows": forecast_rows,
                        "months": f"{df['month'].min()} – {df['month'].max()}"},
@@ -206,24 +207,24 @@ def _compute_monthly(spec: ChartSpec, m: Metric) -> dict[str, Any]:
     }
 
 
-def _compute_snapshot(spec: ChartSpec, m: Metric) -> dict[str, Any]:
+def _compute_snapshot(spec: ChartSpec, m: Metric, language: Language) -> dict[str, Any]:
     db = get_db()
     base = _base_query(spec)
     df = pd.DataFrame(list(db.supply_operations.find(base, {"_id": 0})))
     if df.empty:
-        return _empty(spec, m, base, "Valinnoilla ei löytynyt rivejä.")
+        return _empty(spec, m, base, text("Valinnoilla ei löytynyt rivejä.", language), language)
     df = df[df["supply_source"].isin(spec.filters.plants)] if spec.filters.plants else df
     df = df.rename(columns={"supply_source": "plant"})
     dims = [d for d in spec.dimensions if d in ("market", "product", "plant")]
     cols = [DIM_FIELD[d] for d in dims]
     g = (df.groupby(cols)[m.field].mean().reset_index() if cols else pd.DataFrame({m.field: [df[m.field].mean()]}))
     g = g.rename(columns={**{DIM_FIELD[d]: d for d in dims}, m.field: "value"})
-    warnings = ["Tilannekuva: kuukausihistoriaa ei ole."] if "month" in spec.dimensions else []
+    warnings = [text("Tilannekuva: kuukausihistoriaa ei ole.", language)] if "month" in spec.dimensions else []
     return {
-        "metric": spec.metric, "unit": m.unit,
-        "chart": _chart(g, dims, "value", "bar", spec.metric),
+        "metric": spec.metric, "unit": text(m.unit, language),
+        "chart": _chart(g, dims, "value", "bar", metric_label(spec.metric, language)),
         "rows": _readable_rows(g, dims, "value"),
-        "receipt": {"kpi": _kpi_receipt(m.kpi_id), "definition": m.definition,
+        "receipt": {"kpi": _kpi_receipt(m.kpi_id), "definition": text(m.definition, language),
                     "source": {"collection": "supply_operations", "sheet": "Supply_Operations", "rows_used": int(len(df))},
                     "filters": spec.filters.model_dump(), "dimensions": dims,
                     "computed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "warnings": warnings},
@@ -231,9 +232,9 @@ def _compute_snapshot(spec: ChartSpec, m: Metric) -> dict[str, Any]:
     }
 
 
-def _empty(spec: ChartSpec, m: Metric, query: dict, note: str) -> dict[str, Any]:
-    return {"metric": spec.metric, "unit": m.unit, "chart": {"type": spec.chart_type, "labels": [], "datasets": []},
-            "rows": [], "receipt": {"kpi": _kpi_receipt(m.kpi_id), "definition": m.definition, "warnings": [note],
+def _empty(spec: ChartSpec, m: Metric, query: dict, note: str, language: Language) -> dict[str, Any]:
+    return {"metric": spec.metric, "unit": text(m.unit, language), "chart": {"type": spec.chart_type, "labels": [], "datasets": []},
+            "rows": [], "receipt": {"kpi": _kpi_receipt(m.kpi_id), "definition": text(m.definition, language), "warnings": [note],
                                     "filters": spec.filters.model_dump()},
             "source": {"collection": "product_market_monthly", "query": query, "plants": spec.filters.plants}}
 
@@ -281,32 +282,33 @@ def filter_replenishment(spec: ChartSpec) -> list[dict[str, Any]]:
     return rows
 
 
-def _compute_replenishment(spec: ChartSpec, m: Metric) -> dict[str, Any]:
+def _compute_replenishment(spec: ChartSpec, m: Metric, language: Language) -> dict[str, Any]:
     rows = [r for r in filter_replenishment(spec) if r["status"] != "NO_SHIPMENTS"]
     table = [{
         "tuote": r["product_name"], "markkina": r["market_name"], "tehdas": r["supply_source"], "tila": r["status"],
         "tilaa_viimeistaan": r["reorder_by_recommended"], "viimeinen_mahdollinen": r["reorder_by_latest"],
         "loppuu_arviolta": r["runout_date_p50"], "riittavyys_vk": r["cover_weeks"], "kpl_viikossa": r["weekly_demand_units"],
-        "nopeutus": (f"{r['expedite']['mode']} viimeistään {r['expedite']['latest_order_date']}"
+        "nopeutus": (text("{mode} viimeistään {date}", language, mode=transport_label(r["expedite"]["mode"], language), date=r["expedite"]["latest_order_date"])
                      if r["expedite"] and r["expedite"]["feasible"] else ""),
     } for r in rows]
     top = rows[:20]
     flags = sorted({f for r in rows for f in r["flags"]})
     return {
-        "metric": spec.metric, "unit": m.unit,
+        "metric": spec.metric, "unit": text(m.unit, language),
         "chart": {"type": "bar", "labels": [f"{r['product_name']} · {r['market_id']}" for r in top],
-                  "datasets": [{"label": "Päiviä suositeltuun tilauspäivään", "data": [r["days_to_recommended_order"] for r in top]}]},
+                  "datasets": [{"label": text("Päiviä suositeltuun tilauspäivään", language), "data": [r["days_to_recommended_order"] for r in top]}]},
         "rows": table,
         "receipt": {
             "kpi": {"id": m.kpi_id, "name": spec.metric, "definition_status": "registered metric",
                     "depends_on": ["KPI-016", "KPI-020", "KPI-006", "KPI-014"]},
-            "definition": m.definition,
+            "definition": text(m.definition, language),
             "source": {"collection": "product_market_monthly + supply_operations", "rows_used": len(rows)},
             "assumptions": rows[0]["receipt"]["assumptions_fingerprint"] if rows else None,
-            "example_steps": rows[0]["receipt"]["steps"] if rows else [],
+            "example_steps": calculation_steps(rows[0]["receipt"]["steps"], language) if rows else [],
             "filters": spec.filters.model_dump(),
             "computed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "warnings": [f"Datan laatuliput: {', '.join(flags)}"] if flags else [],
+            "warnings": [text("Datan laatuliput: {flags}", language,
+                              flags=", ".join(flag_label(f, language) for f in flags))] if flags else [],
         },
         "source": {"collection": "replenishment", "query": _base_query(spec), "plants": spec.filters.plants,
                    "statuses": spec.filters.statuses},
@@ -315,13 +317,13 @@ def _compute_replenishment(spec: ChartSpec, m: Metric) -> dict[str, Any]:
 
 # --------------------------------------------------------------------------- entry points
 
-def compute(spec: ChartSpec) -> dict[str, Any]:
+def compute(spec: ChartSpec, language: Language = "en") -> dict[str, Any]:
     m = METRICS[spec.metric]
     if m.kind == "replenishment":
-        return _compute_replenishment(spec, m)
+        return _compute_replenishment(spec, m, language)
     if m.kind == "snapshot":
-        return _compute_snapshot(spec, m)
-    return _compute_monthly(spec, m)
+        return _compute_snapshot(spec, m, language)
+    return _compute_monthly(spec, m, language)
 
 
 def raw_rows(source: dict[str, Any]) -> pd.DataFrame:
@@ -356,7 +358,3 @@ def metric_catalog_for_prompt() -> str:
     for name, m in METRICS.items():
         lines.append(f"- {name} ({m.kpi_id}, {m.unit}): {m.description}")
     return "\n".join(lines)
-
-
-def to_json(obj: Any) -> str:
-    return json.dumps(obj, ensure_ascii=False, default=str)

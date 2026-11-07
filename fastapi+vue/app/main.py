@@ -10,20 +10,24 @@ from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import briefing as briefing_mod
 from . import config, engine, metrics
 from .db import get_db
+from .i18n import Language, role_label
 
 app = FastAPI(title="Build Less assistant", version="0.1.0")
 STATIC = Path(__file__).resolve().parent / "static"
+app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 
 class AskIn(BaseModel):
     role: str
     question: str
     session_id: str | None = None   # same id = same conversation (follow-up questions)
+    language: Language = "en"
 
 
 class ProposeIn(BaseModel):
@@ -42,15 +46,15 @@ def index():
 
 
 @app.get("/api/roles")
-def roles():
-    return [{"id": k, **v} for k, v in config.ROLES.items()]
+def roles(language: Language = "en"):
+    return [{"id": k, **v, "label": role_label(k, language)} for k, v in config.ROLES.items()]
 
 
 @app.get("/api/briefing/{role}")
-def get_briefing(role: str):
+def get_briefing(role: str, language: Language = "en"):
     if role not in config.ROLES:
         raise HTTPException(404, "unknown role")
-    return briefing_mod.briefing(role)
+    return briefing_mod.briefing(role, language)
 
 
 @app.post("/api/ask")
@@ -59,7 +63,7 @@ def ask(body: AskIn):
         raise HTTPException(404, "unknown role")
     if not body.question.strip():
         raise HTTPException(400, "empty question")
-    return engine.ask(body.question.strip(), body.role, body.session_id)
+    return engine.ask(body.question.strip(), body.role, body.session_id, body.language)
 
 
 @app.get("/api/conversations/{session_id}")

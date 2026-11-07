@@ -1,50 +1,107 @@
-# Analytics Dashboard Factory: Build Less, Build Better 🚀
+# SinceAI - Build Less assistant
 
-**Bayer Challenge @ Since AI Hackathon 2026**
+AI-assisted, governed plant analytics for the Bayer challenge at Since AI 2026.
+The application answers business questions using canonical KPIs, reuses existing
+charts before creating new ones, and records definitions and source evidence.
+All supplied operational data is synthetic; it does not represent real Bayer performance.
 
-## 📌 Project Overview
-Enterprise self-service BI creates speed, but also dashboard sprawl, duplicate logic, unclear ownership, and technical debt. This project aims to solve this by introducing an **AI-powered Analytics Dashboard Factory**.
+## Current stack
 
-Instead of mindlessly generating new dashboards for every user request, this system acts as an intelligent gatekeeper and consultant. It parses user intent, searches the existing BI estate (metadata, KPIs, usage stats), and recommends whether to **reuse** an existing dashboard, **modify/consolidate** overlapping assets, or **build** a new governed analytics product.
+- FastAPI backend and a Vue 3 / Chart.js browser interface, served by the same process.
+- MongoDB for source data, chart registry, conversations, results and audit records.
+- Google Gemini for interpreting questions and wording answers. Python computes all numbers.
+- Optional n8n workflow for certification and retirement proposals; a human approves decisions.
+- English/Finnish interface and responses; English is the default. Dark/light appearance.
+  The browser remembers both preferences. Existing chat messages retain their original text.
 
-## 🎯 Goal for the Coding Agent
-Your primary task is to help build out the automated, agentic workflow that translates a natural language business request into a governed analytics specification. You will be writing Python scripts, database queries, API integrations, and agent logic.
+## Setup (Windows PowerShell)
 
-## 🏗️ Architecture & Workflow
-The system is divided into four main Work Packages (WPs):
+Run from the repository root:
 
-1. **WP1: Prompt-to-Intent (Clarification Phase)**
-   - **Input:** Natural language prompt from a business user.
-   - **Action:** Evaluate if the request is clear. If not, trigger a `/grill-me` routine to ask clarifying questions.
-   - **Output:** A structured, formal business `Intent`.
+```powershell
+cd C:\Users\jan_k\Documents\SinceAI
+# Create the environment only if it does not already exist:
+if (-not (Test-Path -LiteralPath '.\.venv\Scripts\python.exe')) { python -m venv .venv }
+& '.\.venv\Scripts\python.exe' -m pip install -r '.\fastapi+vue\requirements.txt'
+```
 
-2. **WP2: Intent-to-Evidence (Discovery Phase)**
-   - **Input:** Structured `Intent`.
-   - **Action:** Query the existing BI metadata estate (simulated via MongoDB/TimescaleDB or dataframes). Run an `/explore` function to find overlapping KPIs, existing reports, and lifecycle data.
-   - **Output:** `Evidence` mapping out what already exists and suggesting a path forward (Reuse, Retire, Migrate, or Build New).
+If `python` is unavailable, use an installed interpreter's full path. This checkout
+also has `C:\Users\jan_k\miniconda3\python.exe`. Environment activation is optional
+when invoking the project's Python by its full or relative path.
 
-3. **WP3: Evidence-to-Spec (Governance Phase)**
-   - **Input:** `Evidence`.
-   - **Action:** Enforce governance rules. Map the request to official Semantic Models and KPI Catalogs. Run `/to-spec`.
-   - **Output:** A machine-readable `Spec` (e.g., JSON schema or `DashboardSpec` dataclass) detailing entities, metrics, dimensions, and rationale.
+For a new configuration, copy `fastapi+vue/.env.example` to `fastapi+vue/.env` and
+fill in `MONGODB_URI`, `MONGODB_DB`, `GEMINI_API_KEY` and a Gemini model available to
+your account. The current local checkout also has a configuration in `application/.env`;
+the startup commands below use it if `fastapi+vue/.env` is absent. Both locations are
+Git-ignored. Never commit credentials. The example's fixed `TODAY` date is for demos.
 
-4. **WP4: Spec-to-Report (Generation Phase)**
-   - **Input:** Governed `Spec`.
-   - **Action:** Render a preview and output a standardized analytics asset definition (e.g., `.pbip` structure for Power BI).
+The MongoDB database must contain the source collections. See
+[data import](fastapi+vue/DATA_IMPORT.md) for first-time loading. Do not re-seed a
+working database merely to start the application.
 
-## 🛠️ Tech Stack & Integrations
-* **LLM / AI:** Google Gemini API (for intent parsing, semantic matching, and decision-making logic).
-* **Orchestration:** n8n (for chaining the agentic workflow).
-* **Databases:** MongoDB Atlas (for metadata/catalog storage), TimescaleDB (for usage history).
-* **Backend:** Python (Pandas/Scikit-learn for synthetic data enrichment and ML routing logic).
+## Start (Windows PowerShell)
 
-## 📁 Repository Structure (Planned)
-* `/data` - Contains the synthetic builder data pack and scripts for data enrichment.
-* `/agents` - Python modules for Gemini API interactions (Intent, Evidence, Spec generation).
-* `/n8n_workflows` - Exported JSON files of n8n workflows.
-* `/api` - FastAPI endpoints to connect the UI/chat interface to the database and agents.
+Paste the whole block into a fresh terminal. The absolute first path makes it work
+regardless of the terminal's current folder:
 
-## 🚀 Immediate Next Steps for the Agent
-1. Ingest and parse the synthetic BI estate data (`.xlsx` files) to create a searchable mock database (e.g., embedding creation or vector search setup).
-2. Build the `Prompt-to-Intent` parser using the Gemini API.
-3. Develop the `/explore` function to match intents against existing dashboard metadata.
+```powershell
+Set-Location -LiteralPath 'C:\Users\jan_k\Documents\SinceAI'
+$sinceaiEnv = if (Test-Path -LiteralPath '.\fastapi+vue\.env') { '.\fastapi+vue\.env' } else { '.\application\.env' }
+Get-Content -LiteralPath $sinceaiEnv -ErrorAction Stop | ForEach-Object {
+    if ($_ -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$') {
+        Set-Item -Path "env:$($matches[1])" -Value $matches[2].Trim()
+    }
+}
+Set-Location -LiteralPath '.\fastapi+vue'
+& '..\.venv\Scripts\python.exe' -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Use plain `KEY=value` lines in the environment file. These commands do not execute
+its contents as shell code. Settings must be loaded before starting Uvicorn.
+
+Open **http://localhost:8000**. The health endpoint is `/api/health`; API docs are
+at `/docs`. Vue and Chart.js load from a CDN, so the UI needs Internet access.
+No npm installation or frontend build is required.
+
+Stop the server with **Ctrl+C** in the terminal running Uvicorn. `deactivate` only
+exits the virtual environment. If port 8000 is occupied, stop the earlier server
+before restarting. Restart after backend changes; refresh after frontend changes.
+
+On macOS/Linux, create `.venv` with `python3 -m venv .venv`, install the same
+manifest with `.venv/bin/python -m pip`, export the configured variables, and run
+`../.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000` from
+`fastapi+vue/`. Do not source an untrusted environment file as a shell script.
+
+## Verification
+
+From the repository root:
+
+```powershell
+& '.\.venv\Scripts\python.exe' -m pip install -r '.\fastapi+vue\requirements-dev.txt'
+& '.\.venv\Scripts\python.exe' -m pytest -q
+node '.\fastapi+vue\tests\frontend_language.cjs'
+& '.\.venv\Scripts\python.exe' -m pip check
+```
+
+The backend suite uses the included workbook, an in-memory MongoDB and fake Gemini;
+it does not seed the live database or call the LLM. Set `DATA_PACK_XLSX` to use a
+different workbook. Node is needed only for the dependency-free frontend checks.
+
+## Repository
+
+| Path | Purpose |
+| --- | --- |
+| `fastapi+vue/app/` | API, decision engine, governed metrics, Gemini integration and translations |
+| `fastapi+vue/app/static/` | Vue interface, Chart.js rendering and frontend translations |
+| `fastapi+vue/reorder/` | Deterministic replenishment calculations and export CLI |
+| `fastapi+vue/tests/` | Offline backend and frontend checks |
+| `fastapi+vue/seed_mongo.py` | Workbook importer and index setup |
+| `fastapi+vue/vector_store.py` | Shared embedding/search helpers |
+| `fastapi+vue/search.py`, `test_search.py` | Live vector-search diagnostics (see data import guide) |
+| `Bayer_SinceAI2026 _1_/Bayer_SinceAI2026/` | Source workbook, challenge briefs and data-pack description |
+| `n8n/` | Optional governance-scan workflow and setup instructions |
+| `application/.env` | Existing local configuration, not application source; Git-ignored |
+
+See [architecture](README_ARCHITECTURE.md), [data import](fastapi+vue/DATA_IMPORT.md)
+and [n8n setup](n8n/N8N.md). Keep this prototype bound to loopback: choosing a role
+is application context, not authenticated authorization.

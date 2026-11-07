@@ -1,0 +1,3 @@
+[tool.pytest.ini_options]
+testpaths = ["fastapi+vue/tests"]
+pythonpath = ["fastapi+vue"]

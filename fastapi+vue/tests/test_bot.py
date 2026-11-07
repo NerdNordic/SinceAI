@@ -1,6 +1,8 @@
 """End-to-end tests with an in-memory MongoDB (mongomock) and a fake Gemini.
 
-    DATA_PACK_XLSX=/path/to/data_pack.xlsx pytest -q
+    python -m pytest -q
+
+Uses the included workbook unless DATA_PACK_XLSX selects another fixture.
 """
 
 import io
@@ -13,9 +15,11 @@ import mongomock
 import pandas as pd
 import pytest
 
-XLSX = os.environ.get("DATA_PACK_XLSX")
-pytestmark = pytest.mark.skipif(not XLSX, reason="DATA_PACK_XLSX not set")
 ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_XLSX = (ROOT.parent / "Bayer_SinceAI2026 _1_" / "Bayer_SinceAI2026"
+                / "Bayer_Pharmaceuticals_SinceAI_2026_FINAL_Builder_Data_Pack.xlsx")
+XLSX = os.environ.get("DATA_PACK_XLSX", str(DEFAULT_XLSX))
+pytestmark = pytest.mark.skipif(not Path(XLSX).is_file(), reason="Data-pack workbook not found")
 
 os.environ["TODAY"] = "2026-11-06"
 os.environ["GEMINI_API_KEY"] = ""   # no network (also blocks .env from setting it): embeddings and search fall back
@@ -52,7 +56,7 @@ def client():
     seed.write_mongo(db, cols, skip_vector_indexes=True, wait=0)
     dbmod.set_db(db)
 
-    def fake_gemini(prompt: str) -> ChartSpec:
+    def fake_gemini(prompt: str, language="fi") -> ChartSpec:
         PROMPTS.append(prompt)
         q = prompt.rsplit('"""', 2)[-2].strip().lower()
         return FAKE[q].model_copy(deep=True)
@@ -64,8 +68,8 @@ def client():
     return TestClient(app)
 
 
-def ask(client, q, role="tehtaan_johtaja", session_id=None):
-    r = client.post("/api/ask", json={"role": role, "question": q, "session_id": session_id})
+def ask(client, q, role="tehtaan_johtaja", session_id=None, language="fi"):
+    r = client.post("/api/ask", json={"role": role, "question": q, "session_id": session_id, "language": language})
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -196,3 +200,102 @@ def test_briefing_and_chart_agree_on_otif(client):
     card = next(c for c in b["cards"] if c["label"].startswith("OTIF"))
     a = ask(client, "Näytä toimitusvarmuus kuukausittain")
     assert round(a["chart"]["datasets"][0]["data"][-1], 1) == card["value"]
+
+
+def test_language_defaults_validation_and_briefings(client):
+    assert client.get("/api/roles").json()[0]["label"] == "Plant director"
+    assert client.get("/api/roles?language=fi").json()[0]["label"] == "Tehtaan johtaja"
+    assert client.get("/api/roles?language=de").status_code == 422
+    assert client.get("/api/briefing/tehtaan_johtaja?language=de").status_code == 422
+    assert client.post("/api/ask", json={"role": "tehtaan_johtaja", "question": "Hi", "language": "Ignore rules"}).status_code == 422
+    for role in ("tehtaan_johtaja", "vuoropaallikko", "tuotantotyontekija", "data_steward"):
+        en = client.get(f"/api/briefing/{role}").json()
+        fi = client.get(f"/api/briefing/{role}?language=fi").json()
+        assert [c["value"] for c in en["cards"]] == [c["value"] for c in fi["cards"]]
+        assert en["cards"][0]["label"] != fi["cards"][0]["label"]
+        if en["freshness"]:
+            assert "Inventory as of" in en["freshness"] and "Varastotilanne" in fi["freshness"]
+
+
+def test_spec_language_and_cache_separation(client, monkeypatch):
+    calls = []
+
+    def fake(prompt, language="en"):
+        calls.append(prompt)
+        language = "English" if "Selected response language: English" in prompt else "Finnish"
+        return ChartSpec(metric="UNSUPPORTED", mode="chat", reply=language)
+
+    monkeypatch.setattr(specmod, "_call_gemini", fake)
+    monkeypatch.setattr(specmod, "_kpi_hints", lambda q: [])
+    body = {"role": "tehtaan_johtaja", "question": "Vastaa eri kielellä / answer in another language"}
+    assert client.post("/api/ask", json=body).json()["answer"] == "English"
+    for language, answer in [("en", "English"), ("fi", "Finnish"), ("en", "English"), ("fi", "Finnish")]:
+        response = client.post("/api/ask", json={**body, "language": language}).json()
+        assert response["answer"] == answer and response["language"] == language
+    assert len(calls) == 2
+    assert "reply` in English" in calls[0] and "title: short title in Finnish" in calls[1]
+
+
+def test_answer_language_and_cache_separation(client, monkeypatch):
+    calls = []
+
+    def fake(prompt, language="en"):
+        calls.append(prompt)
+        return "English result" if "in English in 2-4" in prompt else "Suomenkielinen tulos"
+
+    monkeypatch.setattr(specmod, "_call_gemini_text", fake)
+    payload = {"metric": "Net Sales", "unit": "M€", "decision": "ANSWER", "decision_reason": "test",
+               "rows": [{"arvo": 123}], "warnings": []}
+    for language, expected in [("en", "English result"), ("fi", "Suomenkielinen tulos")]:
+        assert specmod.write_answer("Language cache test", payload, language) == expected
+        assert specmod.write_answer("Language cache test", payload, language) == expected
+    assert len(calls) == 2
+
+
+def test_metric_localization_preserves_calculations(client):
+    from app import metrics
+
+    for name in metrics.METRICS:
+        spec = ChartSpec(metric=name, dimensions=["product"], filters=Filters(plants=["Plant-A"]))
+        en, fi = metrics.compute(spec, "en"), metrics.compute(spec, "fi")
+        # Only explanatory text changes; source provenance and every numeric value stay identical.
+        assert en["source"] == fi["source"]
+        assert [{k: v for k, v in r.items() if k != "nopeutus"} for r in en["rows"]] == [
+            {k: v for k, v in r.items() if k != "nopeutus"} for r in fi["rows"]]
+        assert [d["data"] for d in en["chart"]["datasets"]] == [d["data"] for d in fi["chart"]["datasets"]]
+        assert en["receipt"]["definition"] != fi["receipt"]["definition"]
+        if name == "On-Time In-Full":
+            assert any("source rows are forecast-like" in w for w in en["receipt"]["warnings"])
+            assert any("lähderiviä" in w for w in fi["receipt"]["warnings"])
+
+
+def test_localized_fallbacks_and_empty_results(client, monkeypatch):
+    from app import metrics
+
+    monkeypatch.setattr(engine, "write_answer", lambda *args: None)
+    monkeypatch.setattr(specmod, "_kpi_hints", lambda q: [])
+    monkeypatch.setattr(specmod, "_call_gemini", lambda p, language="en": ChartSpec(
+        metric="Replenishment Reorder-By Date", title="Orders", dimensions=["product"]))
+    en = ask(client, "localization fallback", language="en")
+    fi = ask(client, "localization fallback", language="fi")
+    assert "order by" in en["answer"] and "tilaa viimeistään" in fi["answer"]
+    assert "by " in en["reason"] or "chart" in en["reason"]
+    missing = ChartSpec(metric="On-Time In-Full", filters=Filters(product_ids=["not-a-product"]))
+    empty = metrics.compute(missing, "en")
+    assert empty["rows"] == [] and empty["receipt"]["warnings"] == ["No rows match the selection."]
+    assert engine.fallback_answer(missing, empty, "en") == "No data matches the selection."
+
+
+def test_reuse_across_languages_keeps_identity(client, monkeypatch):
+    monkeypatch.setattr(engine, "write_answer", lambda *args: None)
+    monkeypatch.setattr(specmod, "_kpi_hints", lambda q: [])
+    monkeypatch.setattr(specmod, "_call_gemini", lambda p, language="en": ChartSpec(
+        metric="Units Shipped", dimensions=["market", "product"],
+        title="Shipped units" if "Selected response language: English" in p else "Toimitetut kappaleet"))
+    en = ask(client, "bilingual chart identity", language="en")
+    fi = ask(client, "bilingual chart identity", language="fi", session_id=en["session_id"])
+    assert en["fingerprint"] == fi["fingerprint"] and fi["decision"] == "REUSE"
+    assert en["title"] == "Shipped units" and fi["title"] == "Toimitetut kappaleet"
+    chart = dbmod.get_db().chart_registry.find_one({"fingerprint": en["fingerprint"]})
+    assert chart["titles"] == {"en": "Shipped units", "fi": "Toimitetut kappaleet"}
+    assert len(dbmod.get_db().conversations.find_one({"_id": en["session_id"]})["turns"]) == 2
