@@ -111,6 +111,14 @@ caller for that configuration. The secret is not general authentication.
   credentials out of the browser, logs and Git.
 - All included data is synthetic; no patient/HCP data is represented.
 
+## Quality evaluation
+
+`backend/evaluation.py` sends the golden questions in `eval/questions.json` to Gemini without the
+cache, twice each, and scores the validated `ChartSpec` against the expected metric, dimensions,
+filters, statuses and outcome (data / clarify / chat). Runs are stored in `eval_runs` and served by
+`/api/eval/latest`. See [production and governance](production-and-governance.md) for the release
+gate, deployment target, access model and ownership.
+
 ## Verification boundaries
 
 Runtime requirements live in `application/requirements.txt`; development requirements

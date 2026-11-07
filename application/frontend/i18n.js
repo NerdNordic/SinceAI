@@ -42,6 +42,7 @@ const ENGLISH = {
   'Kiinnitys epäonnistui:': 'Pinning failed:',
   'AI-palvelu ei ole juuri nyt käytettävissä. Yritä hetken kuluttua uudelleen.': 'The AI service is temporarily unavailable. Please try again shortly.',
   'Tehtaan johtaja': 'Plant director', 'Vuoropäällikkö': 'Shift supervisor', 'Tuotantotyöntekijä': 'Production worker',
+  'Country Manager, Suomi': 'Country manager, Finland', 'Talouscontroller': 'Finance controller',
   'Data Steward': 'Data steward', 'Net Sales': 'Net Sales', 'Net Sales Growth': 'Net Sales Growth',
   'Units Shipped': 'Units Shipped', 'Inventory Coverage': 'Inventory Coverage', 'On-Time In-Full': 'On-Time In-Full',
   'Forecast Variance': 'Forecast Variance', 'Market Access Coverage': 'Market Access Coverage',
@@ -67,6 +68,13 @@ const ENGLISH = {
   'ZERO_SHIPMENT_MONTH': 'Month with no shipments', 'VOLATILE_SHIPMENTS': 'Volatile shipments',
   'INVENTORY_SOURCE_CONFLICT': 'Conflicting inventory sources', 'LATEST_MONTH_FORECAST_LIKE': 'Latest month is forecast-like',
   'ZERO_INVENTORY': 'Zero inventory', 'air': 'Air', 'road': 'Road', 'sea': 'Sea',
+  'Laadunvarmistus': 'Quality assurance', 'Testikysymykset ajettu': 'Test questions run', 'toistoa': 'repeats',
+  'Tulkittu oikein': 'Interpreted correctly', 'Sama tulkinta joka kerta': 'Same interpretation every time',
+  'Arvauksia kysymyksiin ilman dataa': 'Guesses on questions without data', 'Kaikki testikysymykset': 'All test questions',
+  'Kysymys': 'Question', 'Tulos': 'Result', 'Toistettava': 'Repeatable',
+  'Ei vielä arviointiajoa. Aja komentoriviltä: python -m tools.run_eval': 'No evaluation run yet. Run from the command line: python -m tools.run_eval',
+  'tuotanto': 'Production', 'kaupallinen': 'Commercial', 'talous': 'Finance', 'ei dataa': 'No data (must ask back)',
+  'keskustelu': 'Conversation',
 };
 const FINNISH = {
   'units': 'kpl', 'weeks': 'viikkoa', 'units/week': 'kpl/vko',
@@ -104,12 +112,16 @@ const EXAMPLES = {
     tehtaan_johtaja: ['Which products are at risk of running out?', 'Show monthly delivery reliability', 'What about by market?', 'Where does this figure come from?'],
     vuoropaallikko: ['Which orders need to be placed this week?', 'How have deliveries performed monthly?', 'What about Finland?'],
     tuotantotyontekija: ['Which products should be prioritized?', 'How many units were shipped each month?', 'What can you do?'],
+    country_manager_fi: ['Net sales by month', 'Sales growth by product', 'How is market access by product?', 'Are we at risk of running out in Finland?'],
+    finance_controller: ['Forecast variance by product', 'How far off were we from the forecast by market?', 'Net sales by market'],
     data_steward: [],
   },
   fi: {
     tehtaan_johtaja: ['Mitkä tuotteet ovat loppumisvaarassa?', 'Näytä toimitusvarmuus kuukausittain', 'Entä markkinoittain?', 'Mistä tämä luku tulee?'],
     vuoropaallikko: ['Mitkä tilaukset pitää tehdä tällä viikolla?', 'Miten toimitukset ovat onnistuneet kuukausittain?', 'Entä Suomessa?'],
     tuotantotyontekija: ['Mitä tuotteita priorisoidaan?', 'Paljonko tuotteita lähetettiin kuukausittain?', 'Mitä osaat?'],
+    country_manager_fi: ['Nettomyynti kuukausittain', 'Myynnin kasvu tuotteittain', 'Market access -kattavuus tuotteittain', 'Onko Suomessa loppumisriskejä?'],
+    finance_controller: ['Ennustepoikkeama tuotteittain', 'Ennustepoikkeama markkinoittain', 'Nettomyynti markkinoittain'],
     data_steward: [],
   },
 };

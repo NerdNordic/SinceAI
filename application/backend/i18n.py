@@ -10,6 +10,23 @@ LANGUAGES = {"en": "English", "fi": "Finnish"}
 ENGLISH = {
     "Tehtaan johtaja": "Plant director", "Vuoropäällikkö": "Shift supervisor",
     "Tuotantotyöntekijä": "Production worker", "Data Steward": "Data steward",
+    "Country Manager, Suomi": "Country manager, Finland", "Talouscontroller": "Finance controller",
+    "Nettomyynti {month}": "Net sales {month}", "Myynnin kasvu {month}": "Sales growth {month}",
+    "Markkinoille pääsy {month}": "Market access {month}", "Toimitusvarmuus {month}": "Delivery reliability {month}",
+    "Ennustepoikkeama {month}": "Forecast variance {month}", "kaikki markkinat": "all markets",
+    "Data: kuukausitaso, viimeisin {month}. Rajaus: {scope}. Luvut lasketaan samalla hallitulla määritelmällä kuin keskustelun kaaviot.":
+        "Data: monthly, latest {month}. Scope: {scope}. Figures use the same governed definition as the conversation charts.",
+    "Nettomyynti kuukausittain": "Net sales by month", "Myynnin kasvu tuotteittain": "Sales growth by product",
+    "Market access -kattavuus tuotteittain": "Market access coverage by product",
+    "Ennustepoikkeama tuotteittain": "Forecast variance by product",
+    "Nettomyynti kuukausittain roolin rajauksella. Sama kanoninen määritelmä (KPI) kuin keskustelun nettomyyntikaaviossa.":
+        "Net sales by month within the role's scope. Same canonical definition (KPI) as the net sales chart in the conversation.",
+    "Nettomyynnin muutos edelliseen kuukauteen roolin rajauksella.": "Month-over-month change in net sales within the role's scope.",
+    "Markkinoille pääsyn kattavuus kuukausittain roolin rajauksella.": "Market access coverage by month within the role's scope.",
+    "Toimitusvarmuus (On-Time In-Full) roolin markkinassa kuukausittain.": "Delivery reliability (On-Time In-Full) in the role's market by month.",
+    "Ennustepoikkeama: nettomyynti miinus ennuste kuukausittain.": "Forecast variance: net sales minus forecast by month.",
+    "Roolin markkinan tuote–markkina-parit, jotka pitää tilata heti (STOCKOUT_RISK tai ORDER_NOW).":
+        "Product-market pairs in the role's market that must be ordered now (STOCKOUT_RISK or ORDER_NOW).",
     "Pyyntöjä": "Requests", "Uusia kaavioita": "New charts",
     "Hoidettu ilman uutta kaaviota": "Handled without a new chart",
     "Sertifiointiehdotuksia": "Certification proposals", "Poistoehdotuksia": "Retirement proposals",

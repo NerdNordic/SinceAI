@@ -1,0 +1,1400 @@
+{
+ "_id": "a6b93faf2bee",
+ "started_at": "2026-11-07 21:51:33.397474+00:00",
+ "finished_at": "2026-11-07 22:13:45.151119+00:00",
+ "model": "gemini-3.8-flash",
+ "prompt_version": "v5-clarify-followup",
+ "language": "fi",
+ "repeats": 2,
+ "summary": {
+  "total": 40,
+  "passed": 40,
+  "accuracy": 1.0,
+  "consistent": 39,
+  "consistency": 0.975,
+  "unsupported_total": 4,
+  "unsupported_guessed": 0,
+  "errors": 0,
+  "by_category": {
+   "ei dataa": {
+    "passed": 4,
+    "total": 4,
+    "accuracy": 1.0
+   },
+   "kaupallinen": {
+    "passed": 7,
+    "total": 7,
+    "accuracy": 1.0
+   },
+   "keskustelu": {
+    "passed": 3,
+    "total": 3,
+    "accuracy": 1.0
+   },
+   "talous": {
+    "passed": 6,
+    "total": 6,
+    "accuracy": 1.0
+   },
+   "tuotanto": {
+    "passed": 20,
+    "total": 20,
+    "accuracy": 1.0
+   }
+  },
+  "by_language": {
+   "en": {
+    "passed": 13,
+    "total": 13,
+    "accuracy": 1.0
+   },
+   "fi": {
+    "passed": 27,
+    "total": 27,
+    "accuracy": 1.0
+   }
+  },
+  "by_role": {
+   "country_manager_fi": {
+    "passed": 4,
+    "total": 4,
+    "accuracy": 1.0
+   },
+   "data_steward": {
+    "passed": 6,
+    "total": 6,
+    "accuracy": 1.0
+   },
+   "finance_controller": {
+    "passed": 6,
+    "total": 6,
+    "accuracy": 1.0
+   },
+   "tehtaan_johtaja": {
+    "passed": 14,
+    "total": 14,
+    "accuracy": 1.0
+   },
+   "tuotantotyontekija": {
+    "passed": 4,
+    "total": 4,
+    "accuracy": 1.0
+   },
+   "vuoropaallikko": {
+    "passed": 6,
+    "total": 6,
+    "accuracy": 1.0
+   }
+  }
+ },
+ "results": [
+  {
+   "id": "q01",
+   "role": "tehtaan_johtaja",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Näytä toimitusvarmuus kuukausittain",
+   "expect": {
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "month"
+    ]
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "month"
+    ],
+    "product_ids": [],
+    "market_ids": [],
+    "plants": [
+     "Plant-A"
+    ],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Toimitusvarmuus kuukausittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q02",
+   "role": "vuoropaallikko",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Miten toimitukset ovat onnistuneet kuukausittain?",
+   "expect": {
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "month"
+    ]
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "month"
+    ],
+    "product_ids": [],
+    "market_ids": [],
+    "plants": [
+     "Plant-A"
+    ],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Toimitusvarmuus (OTIF) kuukausittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q03",
+   "role": "tehtaan_johtaja",
+   "lang": "en",
+   "category": "tuotanto",
+   "question": "How reliable have our deliveries been month by month?",
+   "expect": {
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "month"
+    ]
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "month"
+    ],
+    "product_ids": [],
+    "market_ids": [],
+    "plants": [
+     "Plant-A"
+    ],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Toimitusvarmuus kuukausittain (OTIF)",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q04",
+   "role": "tehtaan_johtaja",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Toimitusvarmuus markkinoittain",
+   "expect": {
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "market"
+    ]
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "market"
+    ],
+    "product_ids": [],
+    "market_ids": [],
+    "plants": [
+     "Plant-A"
+    ],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Toimitusvarmuus markkinoittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q05",
+   "role": "tehtaan_johtaja",
+   "lang": "en",
+   "category": "tuotanto",
+   "question": "OTIF by market",
+   "expect": {
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "market"
+    ]
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "market"
+    ],
+    "product_ids": [],
+    "market_ids": [],
+    "plants": [
+     "Plant-A"
+    ],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Toimitusvarmuus (OTIF) markkinoittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q06",
+   "role": "tehtaan_johtaja",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Toimitusvarmuus kuukausittain Plant B:llä",
+   "expect": {
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "month"
+    ],
+    "filters": {
+     "plants": [
+      "Plant-B"
+     ]
+    }
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "month"
+    ],
+    "product_ids": [],
+    "market_ids": [],
+    "plants": [
+     "Plant-B"
+    ],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Toimitusvarmuus kuukausittain – Plant B",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q07",
+   "role": "vuoropaallikko",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "OTIF Ruotsissa kuukausittain",
+   "expect": {
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "month"
+    ],
+    "filters": {
+     "market_ids": [
+      "SE"
+     ]
+    }
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "month"
+    ],
+    "product_ids": [],
+    "market_ids": [
+     "SE"
+    ],
+    "plants": [
+     "Plant-A"
+    ],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "OTIF Ruotsissa kuukausittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q08",
+   "role": "vuoropaallikko",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Mitkä tilaukset pitää tehdä tällä viikolla?",
+   "expect": {
+    "metric": "Replenishment Reorder-By Date",
+    "statuses_include": [
+     "STOCKOUT_RISK",
+     "ORDER_NOW"
+    ]
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Replenishment Reorder-By Date",
+    "dimensions": [
+     "market",
+     "product"
+    ],
+    "product_ids": [],
+    "market_ids": [],
+    "plants": [
+     "Plant-A"
+    ],
+    "statuses": [
+     "ORDER_NOW",
+     "STOCKOUT_RISK"
+    ],
+    "actuals_only": false,
+    "title": "Tällä viikolla tehtävät täydennystilaukset",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q09",
+   "role": "vuoropaallikko",
+   "lang": "en",
+   "category": "tuotanto",
+   "question": "Which orders must be placed right now?",
+   "expect": {
+    "metric": "Replenishment Reorder-By Date",
+    "statuses_include": [
+     "STOCKOUT_RISK",
+     "ORDER_NOW"
+    ]
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Replenishment Reorder-By Date",
+    "dimensions": [
+     "market",
+     "product"
+    ],
+    "product_ids": [],
+    "market_ids": [],
+    "plants": [
+     "Plant-A"
+    ],
+    "statuses": [
+     "ORDER_NOW",
+     "STOCKOUT_RISK"
+    ],
+    "actuals_only": false,
+    "title": "Heti tilattavat tuotteet ja markkinat",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q10",
+   "role": "tehtaan_johtaja",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Mitkä tuotteet ovat loppumisvaarassa?",
+   "expect": {
+    "metric": "Replenishment Reorder-By Date",
+    "statuses_include": [
+     "STOCKOUT_RISK"
+    ]
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Replenishment Reorder-By Date",
+    "dimensions": [
+     "product"
+    ],
+    "product_ids": [],
+    "market_ids": [],
+    "plants": [
+     "Plant-A"
+    ],
+    "statuses": [
+     "STOCKOUT_RISK"
+    ],
+    "actuals_only": false,
+    "title": "Loppumisvaarassa olevat tuotteet",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q11",
+   "role": "tuotantotyontekija",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Mitä tuotteita priorisoidaan?",
+   "expect": {
+    "metric": "Replenishment Reorder-By Date"
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Replenishment Reorder-By Date",
+    "dimensions": [
+     "product"
+    ],
+    "product_ids": [],
+    "market_ids": [],
+    "plants": [
+     "Plant-A"
+    ],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Priorisoitavat tuotteet ja täydennystarpeet",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": false,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q12",
+   "role": "tehtaan_johtaja",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Milloin Xarelton varasto loppuu Suomessa?",
+   "expect": {
+    "metric": "Replenishment Reorder-By Date",
+    "filters": {
+     "product_ids": [
+      "P-XAR"
+     ],
+     "market_ids": [
+      "FI"
+     ]
+    }
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Replenishment Reorder-By Date",
+    "dimensions": [
+     "market",
+     "product"
+    ],
+    "product_ids": [
+     "P-XAR"
+    ],
+    "market_ids": [
+     "FI"
+    ],
+    "plants": [
+     "Plant-A"
+    ],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Xarelton varaston riittävyys ja tilauspäivä Suomessa",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q13",
+   "role": "tuotantotyontekija",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Paljonko tuotteita lähetettiin kuukausittain?",
+   "expect": {
+    "metric": "Units Shipped",
+    "dimensions": [
+     "month"
+    ]
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Units Shipped",
+    "dimensions": [
+     "month"
+    ],
+    "product_ids": [],
+    "market_ids": [],
+    "plants": [
+     "Plant-A"
+    ],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Toimitetut yksiköt kuukausittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q14",
+   "role": "tehtaan_johtaja",
+   "lang": "en",
+   "category": "tuotanto",
+   "question": "Units shipped per product",
+   "expect": {
+    "metric": "Units Shipped",
+    "dimensions": [
+     "product"
+    ]
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Units Shipped",
+    "dimensions": [
+     "product"
+    ],
+    "product_ids": [],
+    "market_ids": [],
+    "plants": [
+     "Plant-A"
+    ],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Toimitetut yksiköt tuotteittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q15",
+   "role": "tehtaan_johtaja",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Toimitetut kappaleet markkinoittain",
+   "expect": {
+    "metric": "Units Shipped",
+    "dimensions": [
+     "market"
+    ]
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Units Shipped",
+    "dimensions": [
+     "market"
+    ],
+    "product_ids": [],
+    "market_ids": [],
+    "plants": [
+     "Plant-A"
+    ],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Toimitetut kappaleet markkinoittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q16",
+   "role": "tehtaan_johtaja",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Varaston riittävyys tuotteittain",
+   "expect": {
+    "metric": "Inventory Coverage",
+    "dimensions": [
+     "product"
+    ]
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Inventory Coverage",
+    "dimensions": [
+     "product"
+    ],
+    "product_ids": [],
+    "market_ids": [],
+    "plants": [
+     "Plant-A"
+    ],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Varaston riittävyys tuotteittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q17",
+   "role": "vuoropaallikko",
+   "lang": "en",
+   "category": "tuotanto",
+   "question": "Weeks of inventory cover by market",
+   "expect": {
+    "metric": "Inventory Coverage",
+    "dimensions": [
+     "market"
+    ]
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Inventory Coverage",
+    "dimensions": [
+     "market"
+    ],
+    "product_ids": [],
+    "market_ids": [],
+    "plants": [
+     "Plant-A"
+    ],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Varaston riittävyys markkinoittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q18",
+   "role": "tehtaan_johtaja",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Varaston riittävyys kuukausittain tuotteittain",
+   "expect": {
+    "metric": "Inventory Coverage",
+    "dimensions": [
+     "month",
+     "product"
+    ]
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Inventory Coverage",
+    "dimensions": [
+     "month",
+     "product"
+    ],
+    "product_ids": [],
+    "market_ids": [],
+    "plants": [
+     "Plant-A"
+    ],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Varaston riittävyys kuukausittain tuotteittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q19",
+   "role": "tehtaan_johtaja",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Kerendian toimitusvarmuus kuukausittain",
+   "expect": {
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "month"
+    ],
+    "filters": {
+     "product_ids": [
+      "P-KER"
+     ]
+    }
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "month"
+    ],
+    "product_ids": [
+     "P-KER"
+    ],
+    "market_ids": [],
+    "plants": [
+     "Plant-A"
+    ],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Kerendian toimitusvarmuus kuukausittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q20",
+   "role": "tuotantotyontekija",
+   "lang": "en",
+   "category": "tuotanto",
+   "question": "How many units of Nubeqa did we ship each month?",
+   "expect": {
+    "metric": "Units Shipped",
+    "dimensions": [
+     "month"
+    ],
+    "filters": {
+     "product_ids": [
+      "P-NUB"
+     ]
+    }
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Units Shipped",
+    "dimensions": [
+     "month"
+    ],
+    "product_ids": [
+     "P-NUB"
+    ],
+    "market_ids": [],
+    "plants": [
+     "Plant-A"
+    ],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Nubeqan toimitetut yksiköt kuukausittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q21",
+   "role": "country_manager_fi",
+   "lang": "fi",
+   "category": "kaupallinen",
+   "question": "Nettomyynti kuukausittain",
+   "expect": {
+    "metric": "Net Sales",
+    "dimensions": [
+     "month"
+    ]
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Net Sales",
+    "dimensions": [
+     "month"
+    ],
+    "product_ids": [],
+    "market_ids": [
+     "FI"
+    ],
+    "plants": [],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Nettomyynti kuukausittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q22",
+   "role": "country_manager_fi",
+   "lang": "en",
+   "category": "kaupallinen",
+   "question": "Net sales by product",
+   "expect": {
+    "metric": "Net Sales",
+    "dimensions": [
+     "product"
+    ]
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Net Sales",
+    "dimensions": [
+     "product"
+    ],
+    "product_ids": [],
+    "market_ids": [
+     "FI"
+    ],
+    "plants": [],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Nettomyynti tuotteittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q23",
+   "role": "data_steward",
+   "lang": "fi",
+   "category": "kaupallinen",
+   "question": "Nubeqan myynti Saksassa kuukausittain",
+   "expect": {
+    "metric": "Net Sales",
+    "dimensions": [
+     "month"
+    ],
+    "filters": {
+     "product_ids": [
+      "P-NUB"
+     ],
+     "market_ids": [
+      "DE"
+     ]
+    }
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Net Sales",
+    "dimensions": [
+     "month"
+    ],
+    "product_ids": [
+     "P-NUB"
+    ],
+    "market_ids": [
+     "DE"
+    ],
+    "plants": [],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Nubeqan myynti Saksassa kuukausittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q24",
+   "role": "data_steward",
+   "lang": "fi",
+   "category": "kaupallinen",
+   "question": "Myynnin kasvu markkinoittain",
+   "expect": {
+    "metric": "Net Sales Growth",
+    "dimensions": [
+     "market"
+    ]
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Net Sales Growth",
+    "dimensions": [
+     "market"
+    ],
+    "product_ids": [],
+    "market_ids": [],
+    "plants": [],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Myynnin kasvu markkinoittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q25",
+   "role": "country_manager_fi",
+   "lang": "en",
+   "category": "kaupallinen",
+   "question": "Sales growth by product",
+   "expect": {
+    "metric": "Net Sales Growth",
+    "dimensions": [
+     "product"
+    ]
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Net Sales Growth",
+    "dimensions": [
+     "product"
+    ],
+    "product_ids": [],
+    "market_ids": [
+     "FI"
+    ],
+    "plants": [],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Liikevaihdon kasvu tuotteittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q26",
+   "role": "country_manager_fi",
+   "lang": "fi",
+   "category": "kaupallinen",
+   "question": "Market access -kattavuus tuotteittain",
+   "expect": {
+    "metric": "Market Access Coverage",
+    "dimensions": [
+     "product"
+    ]
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Market Access Coverage",
+    "dimensions": [
+     "product"
+    ],
+    "product_ids": [],
+    "market_ids": [
+     "FI"
+    ],
+    "plants": [],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Market access -kattavuus tuotteittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q27",
+   "role": "data_steward",
+   "lang": "en",
+   "category": "kaupallinen",
+   "question": "How well do patients get access to our products in each country?",
+   "expect": {
+    "metric": "Market Access Coverage",
+    "dimensions": [
+     "market"
+    ]
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Market Access Coverage",
+    "dimensions": [
+     "market"
+    ],
+    "product_ids": [],
+    "market_ids": [],
+    "plants": [],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Markkinoille pääsyn kattavuus maittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q28",
+   "role": "finance_controller",
+   "lang": "fi",
+   "category": "talous",
+   "question": "Ennustepoikkeama tuotteittain",
+   "expect": {
+    "metric": "Forecast Variance",
+    "dimensions": [
+     "product"
+    ]
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Forecast Variance",
+    "dimensions": [
+     "product"
+    ],
+    "product_ids": [],
+    "market_ids": [],
+    "plants": [],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Ennustepoikkeama tuotteittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q29",
+   "role": "finance_controller",
+   "lang": "en",
+   "category": "talous",
+   "question": "How far off were we from the forecast by market?",
+   "expect": {
+    "metric": "Forecast Variance",
+    "dimensions": [
+     "market"
+    ]
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Forecast Variance",
+    "dimensions": [
+     "market"
+    ],
+    "product_ids": [],
+    "market_ids": [],
+    "plants": [],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Ennustepoikkeama markkinoittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q30",
+   "role": "finance_controller",
+   "lang": "fi",
+   "category": "talous",
+   "question": "Toteuma vs ennuste kuukausittain",
+   "expect": {
+    "metric": "Forecast Variance",
+    "dimensions": [
+     "month"
+    ],
+    "actuals_only": null
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Forecast Variance",
+    "dimensions": [
+     "month"
+    ],
+    "product_ids": [],
+    "market_ids": [],
+    "plants": [],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Ennustepoikkeama kuukausittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q31",
+   "role": "finance_controller",
+   "lang": "fi",
+   "category": "talous",
+   "question": "Ennustepoikkeama tuotteittain, vain toteuma",
+   "expect": {
+    "metric": "Forecast Variance",
+    "dimensions": [
+     "product"
+    ],
+    "actuals_only": true
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Forecast Variance",
+    "dimensions": [
+     "product"
+    ],
+    "product_ids": [],
+    "market_ids": [],
+    "plants": [],
+    "statuses": [],
+    "actuals_only": true,
+    "title": "Ennustepoikkeama tuotteittain (vain toteuma)",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q32",
+   "role": "finance_controller",
+   "lang": "fi",
+   "category": "talous",
+   "question": "Ennustetarkkuus tuotteittain",
+   "expect": {
+    "metric": "Demand Forecast Accuracy",
+    "dimensions": [
+     "product"
+    ]
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Demand Forecast Accuracy",
+    "dimensions": [
+     "product"
+    ],
+    "product_ids": [],
+    "market_ids": [],
+    "plants": [],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Kysynnän ennustetarkkuus tuotteittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q33",
+   "role": "finance_controller",
+   "lang": "en",
+   "category": "talous",
+   "question": "Forecast accuracy by market",
+   "expect": {
+    "metric": "Demand Forecast Accuracy",
+    "dimensions": [
+     "market"
+    ]
+   },
+   "got": {
+    "outcome": "data",
+    "metric": "Demand Forecast Accuracy",
+    "dimensions": [
+     "market"
+    ],
+    "product_ids": [],
+    "market_ids": [],
+    "plants": [],
+    "statuses": [],
+    "actuals_only": false,
+    "title": "Kysyntäennusteen tarkkuus markkinoittain",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q34",
+   "role": "data_steward",
+   "lang": "fi",
+   "category": "ei dataa",
+   "question": "Mikä on budjettipoikkeama?",
+   "expect": {
+    "outcome": "clarify"
+   },
+   "got": {
+    "outcome": "clarify",
+    "title": "Budjettipoikkeama - ei tuettu mittari pisteessä KPI-katalogi budjettipoikkeamaa ei ole saatavilla ennustepoikkeama tarkoititko Forecast Variance kysy uudestaan tarkentamalla mittaria taulukko raportti tieto data pyyntö analyysi huomautus selvennys kysymys tarvitaan lisätietoa käyttäjältä suomi käännös virallinen nimi Budjettipoikkeama poikkeama tarkastelu toteuma budjetti ennuste vertailu raportointi järjestelmä vastaus ohje mukaisesti valittu oikein JSON skeema kenttäarvo kelvollinen syöte tuotos lopputulos valmis täsmälleen schema sääntöjä noudattaen aina Finnish kieli käyttöliittymä viestit vastauskieli Finnish kaikille käyttäjälle näkyville kentille kuten reply title clarification_question selkeä kysymys suomeksi Budjettipoikkeama ei saatavilla Tarkoititko ennustepoikkeamaa Forecast Variance vai jotain muuta mittaria tarkenna pyyntöäsi ole hyvä ja valitse mittari luettelosta kiitos palautteesta tähän kenttään suoraan ja lyhyesti muodossa Budjettipoikkeamaa ei löydy katalogista Tarkoititko ennustepoikkeamaa Forecast Variance lyhyt ja selkeä suomenkielinen kysymys käyttäjälle vastausmuoto kunnossa oikea syntaksi ja validi json tuloste ilman ohjausmerkkejä tai kommentteja täydellinen vastaus pyyntöön sovitusti loppuun asti viety toteutus tässä muodossa kiitos paljon ja ole hyvä jatkossa myös samalla tavalla hoidetaan vastaavat tapaukset virheettömästi ja laadukkaasti perille asti aina kunnossa olevalla skeemalla kiitos paljon yhteistyöstä ja mukavaa päivänjatkoa toivottaa tekoälyavustaja aina valmiina palvelemaan ammattimaisesti ja luotettavasti lääketehtaan analytiikassa ja datan hallinnassa Data Steward roolissa kaikille tehtaille ja markkinoille sopivasti kattavasti ja täsmällisesti määriteltynä alusta loppuun saakka tässä lopputulos selkeästi ilmaistuna kiitos hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei hei! Oh, wait! I must not include any extra text outside of the JSON string! The instructions explicitly say: ",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q35",
+   "role": "data_steward",
+   "lang": "en",
+   "category": "ei dataa",
+   "question": "Show gross-to-net rate by market",
+   "expect": {
+    "outcome": "clarify"
+   },
+   "got": {
+    "outcome": "clarify",
+    "title": "Gross-to-Net markkinoittain",
+    "text": "Gross-to-Net Rate ei ole saatavilla. Haluatko tarkastella sen sijaan liikevaihtoa (Net Sales) tai liikevaihdon kasvua (Net Sales Growth) markkinoittain?"
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q36",
+   "role": "tehtaan_johtaja",
+   "lang": "fi",
+   "category": "ei dataa",
+   "question": "Mikä on linjan 3 käyttöaste tänään?",
+   "expect": {
+    "outcome": "clarify"
+   },
+   "got": {
+    "outcome": "clarify",
+    "title": "Tuntematon mittari: Linjan käyttöastetai vastaava mittari ei ole saatavilla tuetuissa KPI-mittareissa. Voit tarkastella esimerkiksi toimitettuja määriä (Units Shipped), toimitusvarmuutta (On-Time In-Full) tai varaston riittävyyttä (Inventory Coverage). Haluatko nähdä jonkin näistä Plant-A:lle?",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q37",
+   "role": "data_steward",
+   "lang": "fi",
+   "category": "ei dataa",
+   "question": "Digitaalinen sitoutuminen kanavittain",
+   "expect": {
+    "outcome": "clarify"
+   },
+   "got": {
+    "outcome": "clarify",
+    "title": "Ei tuettu mittari: Digitaalinen sitoutuminen kanavittain ready to parse without any control characters or errors, just pure JSON conforming strictly to schema requirements: e.g. Digitaalinen sitoutuminen kanavittain - Tuntematon mittari. Wait, keep it simple and clean JSON without control characters inside string. Let's write valid json correctly.",
+    "text": ""
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q38",
+   "role": "tehtaan_johtaja",
+   "lang": "fi",
+   "category": "keskustelu",
+   "question": "Mitä osaat?",
+   "expect": {
+    "outcome": "chat"
+   },
+   "got": {
+    "outcome": "chat",
+    "title": "UNSUPPORTED",
+    "text": "Olen lääketehtaan analytiikka-avustaja. Voin auttaa sinua seuraamaan ja visualisoimaan keskeisiä mittareita, kuten toimitusvarmuutta (OTIF), toimitettuja määriä, varaston riittävyyttä, liikevaihtoa sekä täydennystilaustarpeita eri tuotteille ja markkinoille. Voit pyytää minulta kuukausitrendejä, vertailuja tai yksittäisiä katsauksia esimerkiksi Plant-A:n toimituksiin liittyen."
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q39",
+   "role": "vuoropaallikko",
+   "lang": "fi",
+   "category": "keskustelu",
+   "question": "Kiitos!",
+   "expect": {
+    "outcome": "chat"
+   },
+   "got": {
+    "outcome": "chat",
+    "title": "UNSUPPORTED",
+    "text": "Ole hyvä! Autan mielelläni, jos haluat tarkastella lisää tuotannon, toimitusten tai varastojen lukuja. Voit kysyä esimerkiksi tietyn tuotteen volyymeista, OTIF-luvuista tai tilaustarpeista."
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  },
+  {
+   "id": "q40",
+   "role": "tuotantotyontekija",
+   "lang": "en",
+   "category": "keskustelu",
+   "question": "Hi, how can you help me?",
+   "expect": {
+    "outcome": "chat"
+   },
+   "got": {
+    "outcome": "chat",
+    "title": "UNSUPPORTED",
+    "text": "Hei! Olen analyysiavustajasi ja voin auttaa sinua seuraamaan tehtaan ja toimitusketjun keskeisiä mittareita. Voin näyttää tietoja esimerkiksi toimitetuista määristä (Units Shipped), toimitusvarmuudesta (OTIF), varaston riittävyydestä, täydennystarpeista sekä myynnistä eri tuotteille ja markkinoille. Kerro vain, mitä mittaria tai tilannetta haluat tarkastella!"
+   },
+   "passed": true,
+   "problems": [],
+   "consistent": true,
+   "repeats": 2,
+   "error": null
+  }
+ ],
+ "complete": true,
+ "stopped": null,
+ "planned": 40
+}

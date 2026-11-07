@@ -30,6 +30,7 @@ is optional. No npm installation or frontend build is required.
 | [Bayer data pack](<data/bayer/README.md>) | Source workbook and challenge briefs; the workbook also supplies offline test data. |
 | [integrations/n8n/](integrations/n8n/README.md) | Optional workflow and governance setup. |
 | [docs/](docs/architecture.md) | Architecture, data-import guide and historical cleanup record. |
+| [Production and governance](docs/production-and-governance.md) | Deployment target, access, ownership, RACI and how quality is reproduced. |
 
 ```text
 SinceAI/
@@ -126,6 +127,20 @@ in the browser. In a new terminal, reload the environment before starting again.
 Optional activation from `application/`: `& '..\.venv\Scripts\Activate.ps1'`.
 
 For macOS/Linux setup and startup, see the [application guide](application/README.md#macos-and-linux).
+
+## Quality evaluation
+
+40 golden questions (Finnish and English; production, commercial and finance; questions without
+data; chat) check that Gemini interprets questions correctly and the same way every time. Run from
+`application/` with the environment loaded; it calls the real model, about 6-10 minutes:
+
+```bash
+python -m tools.run_eval              # 40 questions x 2 repeats
+python -m tools.run_eval --repeats 1  # faster, no consistency check
+```
+
+The result is saved to MongoDB and shown in **Data Steward -> Quality assurance**, with a copy in
+`application/eval/results/latest.md`. See [production and governance](docs/production-and-governance.md#3-how-quality-is-reproduced-every-time).
 
 ## Verify changes
 

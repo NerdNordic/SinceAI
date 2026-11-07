@@ -7,7 +7,7 @@ from typing import Any
 import pandas as pd
 
 from . import config
-from .briefing import STATUS_FI, URGENT, briefing
+from .briefing import STATUS_FI, URGENT, briefing, business_result, market_urgent_rows
 from .db import get_db, lookups
 from .i18n import Language, role_label, text, transport_label
 from .metrics import ACTUAL, METRICS, replenishment_results
@@ -38,6 +38,13 @@ DESCRIPTIONS = {
                            "käyttänyt vähintään kaksi roolia tai jolla on vähintään kolme käyttökertaa.",
     "retire_suggestions": "Kaaviorekisterin poistoehdotukset: kaaviot, jotka ovat olleet käyttämättä "
                           "pidempään kuin elinkaarisääntö sallii (RETIRE_IDLE_MINUTES).",
+    "net_sales": "Nettomyynti kuukausittain roolin rajauksella. Sama kanoninen määritelmä (KPI) kuin "
+                 "keskustelun nettomyyntikaaviossa.",
+    "growth": "Nettomyynnin muutos edelliseen kuukauteen roolin rajauksella.",
+    "access": "Markkinoille pääsyn kattavuus kuukausittain roolin rajauksella.",
+    "market_otif": "Toimitusvarmuus (On-Time In-Full) roolin markkinassa kuukausittain.",
+    "variance": "Ennustepoikkeama: nettomyynti miinus ennuste kuukausittain.",
+    "market_urgent": "Roolin markkinan tuote–markkina-parit, jotka pitää tilata heti (STOCKOUT_RISK tai ORDER_NOW).",
 }
 
 _DECISION_FI = {"REUSE": "uudelleenkäyttö", "EXTEND": "laajennus", "ANSWER": "vastaus ilman kaaviota",
@@ -210,7 +217,27 @@ def _retire_detail(role: str, language: Language) -> dict[str, Any]:
     return _suggestion_detail("retire", language)
 
 
+def _metric_builder(metric: str):
+    def build(role: str, language: Language) -> dict[str, Any]:
+        res = business_result(role, metric, language)
+        m = METRICS[metric]
+        src = res["receipt"].get("source", {})
+        return {"chart": res["chart"], "rows": res["rows"],
+                "kpi": {"id": m.kpi_id, "name": metric, "unit": m.unit, "definition": text(m.definition, language)},
+                "source": f"{src.get('collection', '')} · {src.get('rows_used', '–')} " + text("riviä", language)}
+    return build
+
+
+def _market_urgent_detail(role: str, language: Language) -> dict[str, Any]:
+    rows = sorted(market_urgent_rows(role), key=lambda r: r["days_to_recommended_order"])
+    return {"chart": _days_chart(rows, language), "rows": _repl_table(rows, language),
+            "source": text("replenishment · tila {statuses}", language, statuses="STOCKOUT_RISK / ORDER_NOW")}
+
+
 _BUILDERS = {
+    "net_sales": _metric_builder("Net Sales"), "growth": _metric_builder("Net Sales Growth"),
+    "access": _metric_builder("Market Access Coverage"), "market_otif": _metric_builder("On-Time In-Full"),
+    "variance": _metric_builder("Forecast Variance"), "market_urgent": _market_urgent_detail,
     "pairs": _pairs_detail, "urgent": _urgent_detail, "urgent14": _urgent14_detail,
     "otif": _otif_detail, "volume": _volume_detail, "week_orders": _week_orders_detail,
     "expedite": _expedite_detail, "priority": _priority_detail, "requests": _requests_detail,

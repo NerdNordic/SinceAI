@@ -1,0 +1,540 @@
+{
+ "_comment": "Golden questions for the interpretation step (question -> chart specification). expect.metric/dimensions/filters must match; unlisted filters must be empty except the role's default plant. statuses_include = statuses that must be present. actuals_only defaults to false; null = not checked. outcome clarify = the assistant must ask back instead of guessing; outcome chat = answered as conversation.",
+ "version": 1,
+ "questions": [
+  {
+   "id": "q01",
+   "role": "tehtaan_johtaja",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Näytä toimitusvarmuus kuukausittain",
+   "expect": {
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "month"
+    ]
+   }
+  },
+  {
+   "id": "q02",
+   "role": "vuoropaallikko",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Miten toimitukset ovat onnistuneet kuukausittain?",
+   "expect": {
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "month"
+    ]
+   }
+  },
+  {
+   "id": "q03",
+   "role": "tehtaan_johtaja",
+   "lang": "en",
+   "category": "tuotanto",
+   "question": "How reliable have our deliveries been month by month?",
+   "expect": {
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "month"
+    ]
+   }
+  },
+  {
+   "id": "q04",
+   "role": "tehtaan_johtaja",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Toimitusvarmuus markkinoittain",
+   "expect": {
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "market"
+    ]
+   }
+  },
+  {
+   "id": "q05",
+   "role": "tehtaan_johtaja",
+   "lang": "en",
+   "category": "tuotanto",
+   "question": "OTIF by market",
+   "expect": {
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "market"
+    ]
+   }
+  },
+  {
+   "id": "q06",
+   "role": "tehtaan_johtaja",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Toimitusvarmuus kuukausittain Plant B:llä",
+   "expect": {
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "month"
+    ],
+    "filters": {
+     "plants": [
+      "Plant-B"
+     ]
+    }
+   }
+  },
+  {
+   "id": "q07",
+   "role": "vuoropaallikko",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "OTIF Ruotsissa kuukausittain",
+   "expect": {
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "month"
+    ],
+    "filters": {
+     "market_ids": [
+      "SE"
+     ]
+    }
+   }
+  },
+  {
+   "id": "q08",
+   "role": "vuoropaallikko",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Mitkä tilaukset pitää tehdä tällä viikolla?",
+   "expect": {
+    "metric": "Replenishment Reorder-By Date",
+    "statuses_include": [
+     "STOCKOUT_RISK",
+     "ORDER_NOW"
+    ]
+   }
+  },
+  {
+   "id": "q09",
+   "role": "vuoropaallikko",
+   "lang": "en",
+   "category": "tuotanto",
+   "question": "Which orders must be placed right now?",
+   "expect": {
+    "metric": "Replenishment Reorder-By Date",
+    "statuses_include": [
+     "STOCKOUT_RISK",
+     "ORDER_NOW"
+    ]
+   }
+  },
+  {
+   "id": "q10",
+   "role": "tehtaan_johtaja",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Mitkä tuotteet ovat loppumisvaarassa?",
+   "expect": {
+    "metric": "Replenishment Reorder-By Date",
+    "statuses_include": [
+     "STOCKOUT_RISK"
+    ]
+   }
+  },
+  {
+   "id": "q11",
+   "role": "tuotantotyontekija",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Mitä tuotteita priorisoidaan?",
+   "expect": {
+    "metric": "Replenishment Reorder-By Date"
+   }
+  },
+  {
+   "id": "q12",
+   "role": "tehtaan_johtaja",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Milloin Xarelton varasto loppuu Suomessa?",
+   "expect": {
+    "metric": "Replenishment Reorder-By Date",
+    "filters": {
+     "product_ids": [
+      "P-XAR"
+     ],
+     "market_ids": [
+      "FI"
+     ]
+    }
+   }
+  },
+  {
+   "id": "q13",
+   "role": "tuotantotyontekija",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Paljonko tuotteita lähetettiin kuukausittain?",
+   "expect": {
+    "metric": "Units Shipped",
+    "dimensions": [
+     "month"
+    ]
+   }
+  },
+  {
+   "id": "q14",
+   "role": "tehtaan_johtaja",
+   "lang": "en",
+   "category": "tuotanto",
+   "question": "Units shipped per product",
+   "expect": {
+    "metric": "Units Shipped",
+    "dimensions": [
+     "product"
+    ]
+   }
+  },
+  {
+   "id": "q15",
+   "role": "tehtaan_johtaja",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Toimitetut kappaleet markkinoittain",
+   "expect": {
+    "metric": "Units Shipped",
+    "dimensions": [
+     "market"
+    ]
+   }
+  },
+  {
+   "id": "q16",
+   "role": "tehtaan_johtaja",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Varaston riittävyys tuotteittain",
+   "expect": {
+    "metric": "Inventory Coverage",
+    "dimensions": [
+     "product"
+    ]
+   }
+  },
+  {
+   "id": "q17",
+   "role": "vuoropaallikko",
+   "lang": "en",
+   "category": "tuotanto",
+   "question": "Weeks of inventory cover by market",
+   "expect": {
+    "metric": "Inventory Coverage",
+    "dimensions": [
+     "market"
+    ]
+   }
+  },
+  {
+   "id": "q18",
+   "role": "tehtaan_johtaja",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Varaston riittävyys kuukausittain tuotteittain",
+   "expect": {
+    "metric": "Inventory Coverage",
+    "dimensions": [
+     "month",
+     "product"
+    ]
+   }
+  },
+  {
+   "id": "q19",
+   "role": "tehtaan_johtaja",
+   "lang": "fi",
+   "category": "tuotanto",
+   "question": "Kerendian toimitusvarmuus kuukausittain",
+   "expect": {
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "month"
+    ],
+    "filters": {
+     "product_ids": [
+      "P-KER"
+     ]
+    }
+   }
+  },
+  {
+   "id": "q20",
+   "role": "tuotantotyontekija",
+   "lang": "en",
+   "category": "tuotanto",
+   "question": "How many units of Nubeqa did we ship each month?",
+   "expect": {
+    "metric": "Units Shipped",
+    "dimensions": [
+     "month"
+    ],
+    "filters": {
+     "product_ids": [
+      "P-NUB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "q21",
+   "role": "country_manager_fi",
+   "lang": "fi",
+   "category": "kaupallinen",
+   "question": "Nettomyynti kuukausittain",
+   "expect": {
+    "metric": "Net Sales",
+    "dimensions": [
+     "month"
+    ]
+   }
+  },
+  {
+   "id": "q22",
+   "role": "country_manager_fi",
+   "lang": "en",
+   "category": "kaupallinen",
+   "question": "Net sales by product",
+   "expect": {
+    "metric": "Net Sales",
+    "dimensions": [
+     "product"
+    ]
+   }
+  },
+  {
+   "id": "q23",
+   "role": "data_steward",
+   "lang": "fi",
+   "category": "kaupallinen",
+   "question": "Nubeqan myynti Saksassa kuukausittain",
+   "expect": {
+    "metric": "Net Sales",
+    "dimensions": [
+     "month"
+    ],
+    "filters": {
+     "product_ids": [
+      "P-NUB"
+     ],
+     "market_ids": [
+      "DE"
+     ]
+    }
+   }
+  },
+  {
+   "id": "q24",
+   "role": "data_steward",
+   "lang": "fi",
+   "category": "kaupallinen",
+   "question": "Myynnin kasvu markkinoittain",
+   "expect": {
+    "metric": "Net Sales Growth",
+    "dimensions": [
+     "market"
+    ]
+   }
+  },
+  {
+   "id": "q25",
+   "role": "country_manager_fi",
+   "lang": "en",
+   "category": "kaupallinen",
+   "question": "Sales growth by product",
+   "expect": {
+    "metric": "Net Sales Growth",
+    "dimensions": [
+     "product"
+    ]
+   }
+  },
+  {
+   "id": "q26",
+   "role": "country_manager_fi",
+   "lang": "fi",
+   "category": "kaupallinen",
+   "question": "Market access -kattavuus tuotteittain",
+   "expect": {
+    "metric": "Market Access Coverage",
+    "dimensions": [
+     "product"
+    ]
+   }
+  },
+  {
+   "id": "q27",
+   "role": "data_steward",
+   "lang": "en",
+   "category": "kaupallinen",
+   "question": "How well do patients get access to our products in each country?",
+   "expect": {
+    "metric": "Market Access Coverage",
+    "dimensions": [
+     "market"
+    ]
+   }
+  },
+  {
+   "id": "q28",
+   "role": "finance_controller",
+   "lang": "fi",
+   "category": "talous",
+   "question": "Ennustepoikkeama tuotteittain",
+   "expect": {
+    "metric": "Forecast Variance",
+    "dimensions": [
+     "product"
+    ]
+   }
+  },
+  {
+   "id": "q29",
+   "role": "finance_controller",
+   "lang": "en",
+   "category": "talous",
+   "question": "How far off were we from the forecast by market?",
+   "expect": {
+    "metric": "Forecast Variance",
+    "dimensions": [
+     "market"
+    ]
+   }
+  },
+  {
+   "id": "q30",
+   "role": "finance_controller",
+   "lang": "fi",
+   "category": "talous",
+   "question": "Toteuma vs ennuste kuukausittain",
+   "expect": {
+    "metric": "Forecast Variance",
+    "dimensions": [
+     "month"
+    ],
+    "actuals_only": null
+   }
+  },
+  {
+   "id": "q31",
+   "role": "finance_controller",
+   "lang": "fi",
+   "category": "talous",
+   "question": "Ennustepoikkeama tuotteittain, vain toteuma",
+   "expect": {
+    "metric": "Forecast Variance",
+    "dimensions": [
+     "product"
+    ],
+    "actuals_only": true
+   }
+  },
+  {
+   "id": "q32",
+   "role": "finance_controller",
+   "lang": "fi",
+   "category": "talous",
+   "question": "Ennustetarkkuus tuotteittain",
+   "expect": {
+    "metric": "Demand Forecast Accuracy",
+    "dimensions": [
+     "product"
+    ]
+   }
+  },
+  {
+   "id": "q33",
+   "role": "finance_controller",
+   "lang": "en",
+   "category": "talous",
+   "question": "Forecast accuracy by market",
+   "expect": {
+    "metric": "Demand Forecast Accuracy",
+    "dimensions": [
+     "market"
+    ]
+   }
+  },
+  {
+   "id": "q34",
+   "role": "data_steward",
+   "lang": "fi",
+   "category": "ei dataa",
+   "question": "Mikä on budjettipoikkeama?",
+   "expect": {
+    "outcome": "clarify"
+   }
+  },
+  {
+   "id": "q35",
+   "role": "data_steward",
+   "lang": "en",
+   "category": "ei dataa",
+   "question": "Show gross-to-net rate by market",
+   "expect": {
+    "outcome": "clarify"
+   }
+  },
+  {
+   "id": "q36",
+   "role": "tehtaan_johtaja",
+   "lang": "fi",
+   "category": "ei dataa",
+   "question": "Mikä on linjan 3 käyttöaste tänään?",
+   "expect": {
+    "outcome": "clarify"
+   }
+  },
+  {
+   "id": "q37",
+   "role": "data_steward",
+   "lang": "fi",
+   "category": "ei dataa",
+   "question": "Digitaalinen sitoutuminen kanavittain",
+   "expect": {
+    "outcome": "clarify"
+   }
+  },
+  {
+   "id": "q38",
+   "role": "tehtaan_johtaja",
+   "lang": "fi",
+   "category": "keskustelu",
+   "question": "Mitä osaat?",
+   "expect": {
+    "outcome": "chat"
+   }
+  },
+  {
+   "id": "q39",
+   "role": "vuoropaallikko",
+   "lang": "fi",
+   "category": "keskustelu",
+   "question": "Kiitos!",
+   "expect": {
+    "outcome": "chat"
+   }
+  },
+  {
+   "id": "q40",
+   "role": "tuotantotyontekija",
+   "lang": "en",
+   "category": "keskustelu",
+   "question": "Hi, how can you help me?",
+   "expect": {
+    "outcome": "chat"
+   }
+  }
+ ]
+}

@@ -27,6 +27,9 @@ ROLES = {
     "tehtaan_johtaja": {"label": "Tehtaan johtaja", "plant": DEMO_PLANT},
     "vuoropaallikko": {"label": "Vuoropäällikkö", "plant": DEMO_PLANT},
     "tuotantotyontekija": {"label": "Tuotantotyöntekijä", "plant": DEMO_PLANT},
+    # Business roles beyond the plant: same engine, a different default scope.
+    "country_manager_fi": {"label": "Country Manager, Suomi", "plant": None, "markets": ["FI"]},
+    "finance_controller": {"label": "Talouscontroller", "plant": None},
     "data_steward": {"label": "Data Steward", "plant": None},
 }
 

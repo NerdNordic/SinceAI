@@ -84,7 +84,7 @@ You turn each user message into a chart specification, or answer it as chat.
 Selected response language: {LANGUAGES[language]}. Write all user-facing text in this language,
 including reply, title and clarification_question, even when the question or history uses another language.
 Keep metric identifiers, dimension keys, filter IDs and enum values unchanged.
-User role: {r['label']}. Their plant: {r['plant'] or 'all plants'}.
+User role: {r['label']}. Their plant: {r['plant'] or 'all plants'}. Their market: {', '.join(r.get('markets') or []) or 'all markets'}.
 Data: monthly January-October 2026 per product x market. Each product x market is supplied by one plant.
 
 Allowed metrics (choose exactly one; choose UNSUPPORTED if none fits; never invent a metric):
@@ -140,17 +140,28 @@ Warnings: {json.dumps(payload['warnings'], ensure_ascii=False)}"""
 
 # --------------------------------------------------------------------------- gemini calls
 
+def daily_quota_exhausted(exc: Exception) -> bool:
+    """Free-tier daily request quota used up: waiting a minute will not help, only tomorrow will."""
+    s = str(exc)
+    return ("429" in s or "RESOURCE_EXHAUSTED" in s) and ("PerDay" in s or "per day" in s.lower())
+
+
 def _retrying(call):
+    import sys
+
     from . import vector_store as vs
 
     for attempt in range(5):
         try:
             return call()
         except Exception as exc:  # noqa: BLE001
-            if attempt == 4 or "API key" in str(exc) or "GEMINI_API_KEY" in str(exc):
+            if attempt == 4 or "API key" in str(exc) or "GEMINI_API_KEY" in str(exc) or daily_quota_exhausted(exc):
                 raise
             limited = "429" in str(exc) or "RESOURCE_EXHAUSTED" in str(exc)
-            time.sleep(vs._retry_delay(exc) or (30 if limited else 2 ** attempt))
+            wait = min(vs._retry_delay(exc) or (30 if limited else 2 ** attempt), 90)
+            print(f"  Gemini {'rate limited' if limited else type(exc).__name__}: retrying in {wait:.0f}s "
+                  f"(attempt {attempt + 2}/5)", file=sys.stderr, flush=True)
+            time.sleep(wait)
     raise RuntimeError("unreachable")
 
 
@@ -220,6 +231,9 @@ def _sanitize(spec: ChartSpec, role: str, language: Language = "en") -> ChartSpe
     role_plant = config.ROLES[role]["plant"]
     if role_plant and not f.plants:
         f.plants = [role_plant]           # factory roles see their own plant by default
+    role_markets = config.ROLES[role].get("markets")
+    if role_markets and not f.market_ids:
+        f.market_ids = list(role_markets)  # market roles see their own market by default
     spec.dimensions = list(dict.fromkeys(spec.dimensions))[:2]
     if spec.metric == "Demand Forecast Accuracy" and "month" in spec.dimensions:
         spec.dimensions.remove("month")
@@ -234,13 +248,18 @@ def _key(*parts: Any) -> str:
 
 
 def generate_spec(question: str, role: str, history: list[dict[str, Any]] | None = None,
-                  language: Language = "en") -> tuple[ChartSpec, dict[str, Any]]:
+                  language: Language = "en", use_cache: bool = True) -> tuple[ChartSpec, dict[str, Any]]:
+    """use_cache=False (evaluation) always asks Gemini and never reads or writes the cache."""
     from .db import get_db
 
     if role not in config.ROLES:
         raise ValueError(f"unknown role {role}")
     history = history or []
     db = get_db()
+    if not use_cache:
+        hints = _kpi_hints(question)
+        spec = _call_gemini(_prompt(question, role, hints, history, language), language)
+        return _sanitize(spec, role, language), {"cached": False, "hints": hints}
     context = [(t["q"], t.get("spec")) for t in history[-3:]]       # follow-ups depend on context
     key = _key("spec", language, role, question.strip().lower(), context)
     cached = db.llm_cache.find_one({"_id": key})

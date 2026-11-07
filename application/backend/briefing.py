@@ -18,6 +18,24 @@ STATUS_FI = {"STOCKOUT_RISK": "loppumisriski", "ORDER_NOW": "tilaa nyt", "URGENT
 ASK_HINTS = {
     "otif": "Näytä toimitusvarmuus kuukausittain",
     "urgent": "Mitkä tilaukset pitää tehdä tällä viikolla?",
+    "net_sales": "Nettomyynti kuukausittain",
+    "growth": "Myynnin kasvu tuotteittain",
+    "access": "Market access -kattavuus tuotteittain",
+    "variance": "Ennustepoikkeama tuotteittain",
+    "market_urgent": "Mitkä tilaukset pitää tehdä tällä viikolla?",
+    "market_otif": "Näytä toimitusvarmuus kuukausittain",
+}
+
+# Business roles beyond the plant: card key -> (governed metric, label). Every value is computed
+# with the same governed metric code as the chat charts, so briefing and chat can never disagree.
+BUSINESS_CARDS = {
+    "country_manager_fi": [("net_sales", "Net Sales", "Nettomyynti {month}"),
+                           ("growth", "Net Sales Growth", "Myynnin kasvu {month}"),
+                           ("access", "Market Access Coverage", "Markkinoille pääsy {month}"),
+                           ("market_otif", "On-Time In-Full", "Toimitusvarmuus {month}")],
+    "finance_controller": [("net_sales", "Net Sales", "Nettomyynti {month}"),
+                           ("variance", "Forecast Variance", "Ennustepoikkeama {month}"),
+                           ("growth", "Net Sales Growth", "Myynnin kasvu {month}")],
 }
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 
@@ -101,6 +119,9 @@ def briefing(role: str, language: Language = "en") -> dict[str, Any]:
              "value": sum(1 for c in reg if c["suggestion"] == "retire")},
         ], "items": [], "freshness": None, "deviations": []}
 
+    if not r.get("plant"):
+        return _business_briefing(role, language)
+
     plant = r["plant"]
     rows = [x for x in replenishment_results() if x["supply_source"] == plant and x["status"] != "NO_SHIPMENTS"]
     urgent = [x for x in rows if x["status"] in URGENT]
@@ -141,4 +162,54 @@ def briefing(role: str, language: Language = "en") -> dict[str, Any]:
         items = [_item(x, language) for x in rows[:5]]
     cards = _with_targets(cards, language)
     return {"role": role_label(role, language), "plant": plant, "cards": cards, "items": items,
+            "freshness": freshness, "deviations": _deviations(cards, language)}
+
+
+# --------------------------------------------------------------------------- business roles
+
+def business_result(role: str, metric: str, language: Language = "en") -> dict[str, Any]:
+    """Monthly governed series for a business role, scoped like the role's chat questions."""
+    from .metrics import compute
+    from .spec import ChartSpec, Filters
+
+    r = config.ROLES[role]
+    f = Filters(market_ids=list(r.get("markets") or []), plants=[r["plant"]] if r.get("plant") else [])
+    return compute(ChartSpec(metric=metric, dimensions=["month"], filters=f, chart_type="line", title=metric), language)
+
+
+def _latest(chart: dict[str, Any]) -> tuple[float | None, str | None]:
+    if not chart.get("datasets"):
+        return None, None
+    for label, v in zip(reversed(chart["labels"]), reversed(chart["datasets"][0]["data"])):
+        if v is not None:
+            return round(float(v), 1), label
+    return None, None
+
+
+def market_urgent_rows(role: str) -> list[dict[str, Any]]:
+    markets = set(config.ROLES[role].get("markets") or [])
+    return [x for x in replenishment_results()
+            if x["status"] in URGENT and (not markets or x["market_id"] in markets)]
+
+
+def _business_briefing(role: str, language: Language) -> dict[str, Any]:
+    r = config.ROLES[role]
+    cards, latest_month = [], None
+    for key, metric, label in BUSINESS_CARDS[role]:
+        res = business_result(role, metric, language)
+        value, month = _latest(res["chart"])
+        latest_month = latest_month or month
+        cards.append({"key": key, "label": text(label, language, month=month or "–"), "value": value,
+                      "unit": res["unit"]})
+    items = []
+    if r.get("markets"):
+        urgent = market_urgent_rows(role)
+        cards.append({"key": "market_urgent", "label": text("Loppumisriski / tilaa nyt", language),
+                      "value": len(urgent), "tone": "critical" if urgent else None})
+        items = [_item(x, language) for x in urgent[:5]]
+    cards = _with_targets(cards, language)
+    scope = ", ".join(r.get("markets") or []) or text("kaikki markkinat", language)
+    freshness = text("Data: kuukausitaso, viimeisin {month}. Rajaus: {scope}. Luvut lasketaan samalla "
+                     "hallitulla määritelmällä kuin keskustelun kaaviot.", language, month=latest_month or "–", scope=scope)
+    return {"role": role_label(role, language), "plant": None, "cards": cards, "items": items,
             "freshness": freshness, "deviations": _deviations(cards, language)}
