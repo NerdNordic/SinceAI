@@ -6,6 +6,7 @@ openpyxl>=3.1
 numpy>=1.26
 pymongo>=4.7
 google-genai>=1.0
+python-dotenv>=1.0
 # tests
 pytest>=8.0
 httpx>=0.27

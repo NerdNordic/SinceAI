@@ -28,11 +28,32 @@
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
   .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; }
   .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .card { border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+  .card { border: 1px solid var(--line); border-radius: 10px; padding: 10px; cursor: pointer; transition: border-color .12s; }
+  .card:hover { border-color: var(--accent); }
   .card .v { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
   .card .l { font-size: 12.5px; color: var(--muted); }
   .card.critical { background: var(--crit-soft); border-color: transparent; } .card.critical .v { color: var(--crit); }
   .card.warning { background: var(--warn-soft); border-color: transparent; } .card.warning .v { color: var(--warn); }
+  .delta { font-size: 12.5px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .delta.good { color: var(--accent); } .delta.bad { color: var(--crit); }
+  .kysy { padding: 4px 10px; font-size: 12.5px; margin-top: 8px; }
+  .devs { margin-top: 12px; display: grid; gap: 6px; }
+  .dev { border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+  .dev.high { background: var(--crit-soft); color: var(--crit); }
+  .dev.medium { background: var(--warn-soft); color: var(--warn); }
+  .dev.low { background: var(--info-soft); color: var(--info); }
+  .devs.ok { color: var(--accent); font-size: 13px; }
+  .overlay { position: fixed; inset: 0; background: rgba(20, 24, 22, .45); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 20; }
+  .modal { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; width: 100%; max-width: 660px; max-height: 85vh; overflow: auto; position: relative; }
+  .modal h3 { margin: 0 0 2px; font-size: 16px; }
+  .close { position: absolute; top: 10px; right: 12px; border: 0; background: transparent; color: var(--muted); font-size: 17px; cursor: pointer; padding: 4px; }
+  .close:hover { color: var(--ink); }
+  .modalval { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; margin: 6px 0 2px; }
+  .modalval small { font-size: 15px; color: var(--muted); font-weight: 400; }
+  .modal .delta { font-size: 14px; }
+  .desc { font-size: 13.5px; color: var(--muted); margin: 6px 0 10px; line-height: 1.5; }
+  .kpi { font-size: 12.5px; color: var(--muted); margin-bottom: 10px; }
+  .modal .chartbox { height: 220px; margin-bottom: 6px; }
   .items { list-style: none; margin: 14px 0 0; padding: 0; }
   .items li { padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
   .pill { display: inline-block; font-size: 11.5px; padding: 1px 8px; border-radius: 999px; background: var(--line); margin-left: 4px; }
@@ -78,6 +99,15 @@
   .said { font-size: 15.5px; margin: 10px 0 4px; }
   .reason.muted { font-size: 13px; margin-top: 0; }
   .ask { margin-top: 12px; }
+  .viewtabs { display: flex; gap: 6px; margin-bottom: 14px; }
+  .viewtabs button { border: 1px solid var(--line); background: var(--panel); padding: 7px 14px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 14px; color: var(--ink); }
+  .viewtabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 1250px) { .tiles { grid-template-columns: 1fr; } }
+  .tile { border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; background: var(--panel); }
+  .tile-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .pill.pin { background: var(--accent-soft); color: var(--accent); cursor: pointer; }
+  .pinsel { border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px; font: inherit; font-size: 13px; background: var(--panel); color: var(--ink); }
 </style>
 </head>
 <body>
@@ -98,9 +128,11 @@
     <section class="panel" v-if="brief">
       <h2>Aamubriefing · {{ brief.role }}<template v-if="brief.plant"> · {{ brief.plant }}</template></h2>
       <div class="cards">
-        <div v-for="c in brief.cards" class="card" :class="c.tone">
+        <div v-for="c in brief.cards" class="card" :class="c.tone" @click="openCard(c)">
           <div class="v">{{ fmt(c.value) }}<small v-if="c.unit" class="muted"> {{ c.unit }}</small></div>
+          <div class="delta" v-if="c.target != null" :class="deltaTone(c)">{{ deltaText(c) }}</div>
           <div class="l">{{ c.label }}</div>
+          <button v-if="c.ask_hint" class="btn ghost kysy" @click.stop="askFrom(c.ask_hint)">Kysy tästä</button>
         </div>
       </div>
       <ul class="items" v-if="brief.items.length">
@@ -110,6 +142,10 @@
           <span v-if="i.expedite" class="warn"><br>nopeutus: {{ i.expedite }}</span>
         </li>
       </ul>
+      <div class="devs" v-if="brief.deviations && brief.deviations.length">
+        <div v-for="d in brief.deviations" :key="d.card_key" class="dev" :class="d.severity">{{ d.message }}</div>
+      </div>
+      <div class="devs ok" v-else-if="brief.deviations">Ei poikkeamia — kaikki tavoitteissa.</div>
       <div class="fresh" v-if="brief.freshness">{{ brief.freshness }}</div>
     </section>
 
@@ -123,6 +159,14 @@
             <td>{{ c.owner }}</td><td>{{ c.use_count || 0 }}</td><td>{{ (c.used_by_roles || []).length }}</td>
             <td>{{ c.status }}<span v-if="c.suggestion" class="pill URGENT">ehdotus: {{ c.suggestion === 'certify' ? 'sertifioi' : 'poista' }}</span></td>
             <td>
+              <template v-if="c.status === 'certified'">
+                <span v-for="pr in rolesWherePinned(c.fingerprint)" :key="pr" class="pill pin"
+                      :title="'Poista kojelaudalta: ' + labelFor(pr)" @click="unpin(pr, c.fingerprint)">✕ {{ labelFor(pr) }}</span>
+                <select v-model="pinTarget[c.fingerprint]" class="pinsel">
+                  <option v-for="r in factoryRoles" :value="r.id">{{ r.label }}</option>
+                </select>
+                <button class="btn ghost" @click="pin(c.fingerprint)">Kiinnitä</button>
+              </template>
               <button class="btn ghost" v-if="c.status === 'active'" @click="propose(c.fingerprint, 'certify')">Ehdota sertifiointia</button>
               <button class="btn danger" v-if="c.status !== 'retired'" @click="propose(c.fingerprint, 'retire')">Ehdota poistoa</button>
             </td>
@@ -143,6 +187,46 @@
         </table>
         <h2 style="margin-top:20px">Audit log</h2>
         <table><tr v-for="a in auditLog"><td class="muted">{{ new Date(a.ts).toLocaleString('fi-FI') }}</td><td>{{ a.event }}</td><td>{{ a.title || a.fingerprint || a.proposal_id }}</td></tr></table>
+      </div>
+
+      <template v-else>
+      <div class="viewtabs">
+        <button :class="{on: view === 'dash'}" @click="setView('dash')">Kojelauta</button>
+        <button :class="{on: view === 'chat'}" @click="setView('chat')">Keskustelu</button>
+      </div>
+
+      <div class="panel" v-if="view === 'dash'">
+        <h2>Kojelauta · {{ roleLabel }}</h2>
+        <div class="fresh" v-if="dash">Sertifioidut KPI:t: {{ dash.kpi_ids.join(', ') || '–' }} · {{ dash.tiles.length }} kaaviota · luvut lasketaan aina tuoreesta datasta</div>
+        <div class="spinner" v-if="dashBusy">Haetaan sertifioituja kaavioita…</div>
+        <div class="empty muted" v-if="dash && !dash.tiles.length">
+          Ei vielä sertifioituja kaavioita tälle roolille. Kysy lukuja keskustelussa ja pyydä Data Stewardia sertifioimaan ne.
+          <div style="margin-top:10px"><button class="btn ghost" @click="setView('chat')">Siirry keskusteluun</button></div>
+        </div>
+        <div class="tiles">
+          <div v-for="t in dash.tiles" :key="t.fingerprint" class="tile">
+            <div class="tile-head">
+              <b>{{ t.title }}</b>
+              <span class="pill" v-for="k in t.kpi_ids" :key="k">{{ k }}</span>
+              <span class="pill pin" v-if="t.pinned" title="Data Steward kiinnitti tämän kojelaudalle">kiinnitetty</span>
+            </div>
+            <div class="chartbox" v-if="t.chart && t.chart.type !== 'table'"><canvas :id="'d' + t.fingerprint"></canvas></div>
+            <div v-if="t.chart && t.chart.type === 'table'" style="overflow:auto;max-height:320px"><table>
+              <tr><th v-for="k in Object.keys(t.rows[0] || {})">{{ k }}</th></tr>
+              <tr v-for="r in t.rows.slice(0, 15)"><td v-for="v in Object.values(r)">{{ typeof v === 'number' ? fmt(v) : v }}</td></tr>
+            </table></div>
+            <div class="warn" v-if="t.error">Laskenta epäonnistui: {{ t.error }}</div>
+            <details v-if="t.receipt"><summary>Laskenta</summary>
+              <dl class="receipt">
+                <dt>KPI</dt><dd>{{ t.receipt.kpi.id }} {{ t.receipt.kpi.name }} <span class="pill">{{ t.receipt.kpi.definition_status }}</span></dd>
+                <dt>Määritelmä</dt><dd>{{ t.receipt.definition }}</dd>
+                <template v-if="t.receipt.source"><dt>Lähde</dt><dd>{{ t.receipt.source.sheet || t.receipt.source.collection }} · {{ t.receipt.source.rows_used }} riviä</dd></template>
+                <template v-if="t.receipt.warnings && t.receipt.warnings.length"><dt>Huomiot</dt><dd class="warn"><div v-for="w in t.receipt.warnings">{{ w }}</div></dd></template>
+                <dt>Sormenjälki</dt><dd>{{ t.fingerprint }}</dd>
+              </dl>
+            </details>
+          </div>
+        </div>
       </div>
 
       <div class="panel chat" v-else>
@@ -192,17 +276,46 @@
         </form>
         <div class="chips"><button v-for="e in examples[role]" @click="question = e; ask()" :disabled="busy">{{ e }}</button></div>
       </div>
+      </template>
     </section>
   </main>
+
+  <div class="overlay" v-if="modal || modalBusy" @click.self="closeCard()">
+    <div class="modal" v-if="modal">
+      <button class="close" @click="closeCard()" aria-label="Sulje">✕</button>
+      <h3>{{ modal.label }}</h3>
+      <div class="modalval">{{ fmt(modal.value) }}<small v-if="modal.unit"> {{ modal.unit }}</small></div>
+      <div class="delta" v-if="modal.target != null" :class="deltaTone(modal)">{{ deltaText(modal) }}</div>
+      <p class="desc">{{ modal.description }}</p>
+      <div class="kpi" v-if="modal.kpi"><span class="pill">{{ modal.kpi.id }}</span> {{ modal.kpi.name }} · {{ modal.kpi.definition }}</div>
+      <div class="chartbox" v-if="modal.chart && modal.chart.labels.length"><canvas id="modalchart"></canvas></div>
+      <details v-if="modal.rows && modal.rows.length" :open="!(modal.chart && modal.chart.labels.length)">
+        <summary>Rivit ({{ modal.rows.length }})</summary>
+        <div style="overflow:auto;max-height:300px"><table>
+          <tr><th v-for="k in Object.keys(modal.rows[0])">{{ k }}</th></tr>
+          <tr v-for="r in modal.rows"><td v-for="v in Object.values(r)">{{ typeof v === 'number' ? fmt(v) : v }}</td></tr>
+        </table></div>
+      </details>
+      <div class="row">
+        <button v-if="modal.ask_hint" class="btn ghost" @click="askFrom(modal.ask_hint); closeCard()">Kysy tästä chatissa</button>
+        <span class="muted" v-if="modal.source">{{ modal.source }}</span>
+      </div>
+    </div>
+    <div class="modal" v-else-if="modalBusy"><div class="spinner">Ladataan kortin tietoja…</div></div>
+  </div>
 </div>
 
 <script>
 const { createApp, nextTick } = Vue;
+const palette = ['#0f6e56', '#2d5ba8', '#a15c00', '#7a3e9d', '#b3261e', '#3f7f2a', '#5f6b65', '#c2185b'];
 const charts = {};
+let modalChart = null;
 createApp({
   data: () => ({
     roles: [], role: 'tehtaan_johtaja', brief: null, meter: null, question: '', busy: false, answers: [],
     sessionId: null, registry: [], proposals: [], auditLog: [],
+    modal: null, modalBusy: false, cardSeq: 0,
+    view: 'dash', dash: null, dashBusy: false, pinTarget: {}, pinnedBy: {},
     examples: {
       tehtaan_johtaja: ['Mitkä tuotteet ovat loppumisvaarassa?', 'Näytä toimitusvarmuus kuukausittain', 'Entä markkinoittain?', 'Mistä tämä luku tulee?'],
       vuoropaallikko: ['Mitkä tilaukset pitää tehdä tällä viikolla?', 'Miten toimitukset ovat onnistuneet kuukausittain?', 'Entä Suomessa?'],
@@ -212,10 +325,12 @@ createApp({
   }),
   computed: {
     roleLabel() { const r = this.roles.find(x => x.id === this.role); return r ? r.label : ''; },
+    factoryRoles() { return this.roles.filter(r => r.id !== 'data_steward'); },
   },
   async mounted() {
     this.roles = await (await fetch('/api/roles')).json();
     await this.refresh();
+    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') this.closeCard(); });
   },
   methods: {
     async refresh() {
@@ -225,13 +340,33 @@ createApp({
         this.registry = await (await fetch('/api/registry')).json();
         this.proposals = await (await fetch('/api/proposals')).json();
         this.auditLog = await (await fetch('/api/audit')).json();
+        this.pinnedBy = {};
+        for (const r of this.factoryRoles) {
+          this.pinnedBy[r.id] = (await (await fetch('/api/dashboards/' + r.id + '?tiles=false')).json()).pinned || [];
+        }
+        this.registry.forEach(c => { if (this.factoryRoles.length && !(c.fingerprint in this.pinTarget)) this.pinTarget[c.fingerprint] = this.factoryRoles[0].id; });
+      } else if (this.view === 'dash') {
+        await this.loadDash();
       }
     },
-    async setRole(r) { this.role = r; this.brief = null; this.newChat(); await this.refresh(); },
+    async setRole(r) { this.role = r; this.brief = null; this.newChat(); this.dash = null; await this.refresh(); },
     newChat() {
+      this.clearCharts();
+      this.answers = []; this.sessionId = null;
+    },
+    clearCharts() {
       Object.values(charts).forEach(c => c.destroy());
       for (const k in charts) delete charts[k];
-      this.answers = []; this.sessionId = null;
+    },
+    setView(v) { this.view = v; this.clearCharts(); if (v === 'dash') this.loadDash(); },
+    async loadDash() {
+      if (this.role === 'data_steward') return;
+      this.dashBusy = true;
+      try {
+        this.dash = await (await fetch('/api/dashboards/' + this.role)).json();
+        await nextTick();
+        (this.dash.tiles || []).forEach(t => this.drawChart('d' + t.fingerprint, t.chart, t.unit));
+      } finally { this.dashBusy = false; }
     },
     async ask() {
       if (!this.question.trim()) return;
@@ -249,17 +384,50 @@ createApp({
       } catch (e) { alert('Virhe: ' + e.message); }
       this.busy = false;
     },
-    draw(a) {
-      const el = document.getElementById('c' + a.key);
-      if (!el || !a.chart) return;
-      const palette = ['#0f6e56', '#2d5ba8', '#a15c00', '#7a3e9d', '#b3261e', '#3f7f2a', '#5f6b65', '#c2185b'];
-      charts[a.key] = new Chart(el, {
-        type: a.chart.type === 'line' ? 'line' : 'bar',
-        data: { labels: a.chart.labels, datasets: a.chart.datasets.map((d, i) => ({ ...d, borderColor: palette[i % 8],
-          backgroundColor: palette[i % 8] + (a.chart.type === 'line' ? '' : 'cc'), tension: 0, spanGaps: true })) },
-        options: { maintainAspectRatio: false, plugins: { legend: { display: a.chart.datasets.length > 1, position: 'bottom' } },
-          scales: { y: { title: { display: true, text: a.unit } } } },
+    mkChart(el, chart, unit) {
+      return new Chart(el, {
+        type: chart.type === 'line' ? 'line' : 'bar',
+        data: { labels: chart.labels, datasets: chart.datasets.map((d, i) => ({ ...d, borderColor: palette[i % 8],
+          backgroundColor: palette[i % 8] + (chart.type === 'line' ? '' : 'cc'), tension: 0, spanGaps: true })) },
+        options: { maintainAspectRatio: false, plugins: { legend: { display: chart.datasets.length > 1, position: 'bottom' } },
+          scales: { y: { title: { display: true, text: unit } } } },
       });
+    },
+    draw(a) {
+      this.drawChart('c' + a.key, a.chart, a.unit);
+    },
+    drawChart(id, chart, unit) {
+      const el = document.getElementById(id);
+      if (!el || !chart || chart.type === 'table') return;
+      if (charts[id]) charts[id].destroy();
+      charts[id] = this.mkChart(el, chart, unit);
+    },
+    drawModal() {
+      const el = document.getElementById('modalchart');
+      if (!el || !this.modal.chart) return;
+      if (modalChart) modalChart.destroy();
+      modalChart = this.mkChart(el, this.modal.chart, this.modal.unit || '');
+    },
+    async openCard(c) {
+      const seq = ++this.cardSeq;
+      this.modalBusy = true;
+      this.modal = null;
+      try {
+        const res = await fetch('/api/briefing/' + this.role + '/card/' + c.key);
+        if (!res.ok) throw new Error(await res.text());
+        const d = await res.json();
+        if (seq !== this.cardSeq) return;
+        this.modal = d;
+        await nextTick();
+        this.drawModal();
+      } catch (e) { alert('Virhe: ' + e.message); }
+      if (seq === this.cardSeq) this.modalBusy = false;
+    },
+    closeCard() {
+      this.cardSeq++;
+      this.modal = null;
+      this.modalBusy = false;
+      if (modalChart) { modalChart.destroy(); modalChart = null; }
     },
     async propose(fp, action) {
       await fetch('/api/registry/' + fp + '/propose', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) });
@@ -270,7 +438,39 @@ createApp({
         body: JSON.stringify({ proposal_id: id, approved, approver: 'Data Steward (UI)' }) });
       await this.refresh();
     },
+    labelFor(id) { const r = this.roles.find(x => x.id === id); return r ? r.label : id; },
+    rolesWherePinned(fp) { return Object.keys(this.pinnedBy).filter(r => (this.pinnedBy[r] || []).includes(fp)); },
+    async pin(fp) {
+      const role = this.pinTarget[fp] || (this.factoryRoles[0] || {}).id;
+      const res = await fetch('/api/dashboards/' + role + '/charts', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fingerprint: fp }) });
+      if (!res.ok) alert('Kiinnitys epäonnistui: ' + await res.text());
+      await this.refresh();
+    },
+    async unpin(role, fp) {
+      await fetch('/api/dashboards/' + role + '/charts/' + fp, { method: 'DELETE' });
+      await this.refresh();
+    },
     fmt(v) { return v == null ? '–' : (typeof v === 'number' ? v.toLocaleString('fi-FI', { maximumFractionDigits: 1 }) : v); },
+    deltaText(c) {
+      const diff = c.value - c.target;
+      const sign = diff > 0 ? '+' : diff < 0 ? '−' : '';
+      return sign + this.fmt(Math.abs(diff)) + ' vs tavoite ' + this.fmt(c.target) + (c.unit ? ' ' + c.unit : '');
+    },
+    deltaTone(c) {
+      const good = c.lower_is_better ? c.value <= c.target : c.value >= c.target;
+      return good ? 'good' : 'bad';
+    },
+    askFrom(hint) {
+      this.question = hint;
+      if (this.role !== 'data_steward' && this.view !== 'chat') this.setView('chat');
+      this.$nextTick(() => {
+        if (this.$refs.input) {
+          this.$refs.input.focus();
+          this.$refs.input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+    },
     fi(d) { return d ? new Date(d).toLocaleDateString('fi-FI') : '–'; },
     filtersText(f) {
       if (!f) return '–';

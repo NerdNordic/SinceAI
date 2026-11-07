@@ -13,7 +13,8 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 from . import briefing as briefing_mod
-from . import config, engine, metrics
+from . import card_detail as card_detail_mod
+from . import config, dashboards, engine, metrics
 from .db import get_db
 
 app = FastAPI(title="Build Less assistant", version="0.1.0")
@@ -36,6 +37,10 @@ class DecisionIn(BaseModel):
     approver: str = "Data Steward"
 
 
+class PinIn(BaseModel):
+    fingerprint: str
+
+
 @app.get("/")
 def index():
     return FileResponse(STATIC / "index.html")
@@ -51,6 +56,16 @@ def get_briefing(role: str):
     if role not in config.ROLES:
         raise HTTPException(404, "unknown role")
     return briefing_mod.briefing(role)
+
+
+@app.get("/api/briefing/{role}/card/{key}")
+def get_card_detail(role: str, key: str):
+    if role not in config.ROLES:
+        raise HTTPException(404, "unknown role")
+    try:
+        return card_detail_mod.card_detail(role, key)
+    except KeyError:
+        raise HTTPException(404, "unknown card")
 
 
 @app.post("/api/ask")
@@ -111,6 +126,34 @@ def decision(body: DecisionIn, x_webhook_secret: str | None = Header(default=Non
         return engine.decide_proposal(body.proposal_id, body.approved, body.approver)
     except KeyError:
         raise HTTPException(404, "unknown proposal")
+
+
+@app.get("/api/dashboards/{role}")
+def dashboard(role: str, tiles: bool = True):
+    """Certified charts of a role as live tiles. tiles=false returns metadata only."""
+    if role not in config.ROLES:
+        raise HTTPException(404, "unknown role")
+    return dashboards.get_dashboard(role, tiles=tiles)
+
+
+@app.post("/api/dashboards/{role}/charts")
+def pin_chart(role: str, body: PinIn):
+    """Data steward pins a certified chart to a role's dashboard."""
+    if role not in config.ROLES:
+        raise HTTPException(404, "unknown role")
+    try:
+        return dashboards.pin(role, body.fingerprint)
+    except KeyError:
+        raise HTTPException(404, "unknown chart")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.delete("/api/dashboards/{role}/charts/{fingerprint}")
+def unpin_chart(role: str, fingerprint: str):
+    if role not in config.ROLES:
+        raise HTTPException(404, "unknown role")
+    return dashboards.unpin(role, fingerprint)
 
 
 @app.get("/api/proposals")
