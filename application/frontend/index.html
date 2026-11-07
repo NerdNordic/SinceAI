@@ -75,6 +75,11 @@ try {
   .roles { display: flex; gap: 6px; flex-wrap: wrap; }
   .roles button { border: 1px solid var(--header-line); background: transparent; padding: 7px 12px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 14px; color: var(--header-ink); }
   .roles button.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .role-select-wrap { display: flex; align-items: center; gap: 8px; }
+  .role-select-wrap label { font-size: 13px; color: var(--header-ink); opacity: .75; white-space: nowrap; }
+  .role-select-wrap select { background: transparent; border: 1px solid var(--header-line); border-radius: 999px; padding: 7px 30px 7px 14px; font: inherit; font-size: 14px; color: var(--header-ink); cursor: pointer; -webkit-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23dce4f8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 11px center; }
+  .role-select-wrap select option { background: var(--panel); color: var(--ink); }
+  header .viewtabs { margin-bottom: 0; }
   .meter { margin-left: auto; display: flex; align-items: baseline; gap: 8px; padding: 6px 14px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 18%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
   .meter b { font-size: 20px; color: var(--accent); font-variant-numeric: tabular-nums; }
   .meter small { color: var(--header-ink); opacity: .7; }
@@ -176,8 +181,15 @@ try {
 <div id="app">
   <header>
     <h1>Build <span>Less</span> {{ t('assistentti') }}</h1>
-    <div class="roles">
-      <button v-for="r in roles" :key="r.id" :class="{on: r.id === role}" @click="setRole(r.id)">{{ r.label }}</button>
+    <div class="role-select-wrap">
+      <label>{{ t('Rooli') }}</label>
+      <select :value="role" @change="setRole($event.target.value)">
+        <option v-for="r in roles" :key="r.id" :value="r.id">{{ r.label }}</option>
+      </select>
+    </div>
+    <div class="viewtabs">
+      <button :class="{on: view === 'dash'}" @click="setView('dash')">{{ t('Kojelauta') }}</button>
+      <button :class="{on: view === 'chat'}" @click="setView('chat')">{{ t('Keskustelu') }}</button>
     </div>
     <div class="meter" v-if="meter">
       <b>{{ fmt(meter.requests) }}</b><small>{{ t('pyyntöä') }}</small>
@@ -257,11 +269,6 @@ try {
       </div>
 
       <template v-else>
-      <div class="viewtabs">
-        <button :class="{on: view === 'dash'}" @click="setView('dash')">Kojelauta</button>
-        <button :class="{on: view === 'chat'}" @click="setView('chat')">Keskustelu</button>
-      </div>
-
       <div class="panel" v-if="view === 'dash'">
         <h2>Kojelauta · {{ roleLabel }}</h2>
         <div class="fresh" v-if="dash">Sertifioidut KPI:t: {{ dash.kpi_ids.join(', ') || '–' }} · {{ dash.tiles.length }} kaaviota · luvut lasketaan aina tuoreesta datasta</div>

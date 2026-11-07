@@ -4,7 +4,7 @@ const ENGLISH = {
   'Vaalea tila': 'Light mode', 'Tumma tila': 'Dark mode', 'Kieli': 'Language',
   'Aamubriefing': 'Morning briefing', 'tilaa viimeistään': 'order by', 'kpl/vko': 'units/week',
   'Kaaviorekisteri': 'Chart registry', 'Kaavio': 'Chart', 'Omistaja': 'Owner', 'Käyttöjä': 'Uses',
-  'Roolit': 'Roles', 'Tila': 'Status', 'ehdotus': 'proposal', 'sertifioi': 'certify', 'poista': 'retire',
+  'Rooli': 'Role', 'Roolit': 'Roles', 'Tila': 'Status', 'ehdotus': 'proposal', 'sertifioi': 'certify', 'poista': 'retire',
   'Ehdota sertifiointia': 'Propose certification', 'Ehdota poistoa': 'Propose retirement',
   'Kiinnitä': 'Pin', 'Poista kojelaudalta:': 'Remove from dashboard',
   'Ei vielä kaavioita. Kysy jotain tehdasroolina.': 'No charts yet. Ask a question using a plant role.',
