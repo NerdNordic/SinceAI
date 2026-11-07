@@ -17,6 +17,7 @@ function setup(saved, blocked = false) {
   const root = {lang: 'en', dataset: {}};
   let options;
   const context = vm.createContext({
+    window: {addEventListener() {}},
     document: {documentElement: root, title: '', getElementById: () => null},
     localStorage: {
       getItem(key) { if (blocked) throw Error('Blocked'); return storage.get(key); },

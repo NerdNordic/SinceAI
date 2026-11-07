@@ -6,6 +6,7 @@ const ENGLISH = {
   'Kaaviorekisteri': 'Chart registry', 'Kaavio': 'Chart', 'Omistaja': 'Owner', 'Käyttöjä': 'Uses',
   'Roolit': 'Roles', 'Tila': 'Status', 'ehdotus': 'proposal', 'sertifioi': 'certify', 'poista': 'retire',
   'Ehdota sertifiointia': 'Propose certification', 'Ehdota poistoa': 'Propose retirement',
+  'Kiinnitä': 'Pin', 'Poista kojelaudalta:': 'Remove from dashboard',
   'Ei vielä kaavioita. Kysy jotain tehdasroolina.': 'No charts yet. Ask a question using a plant role.',
   'Hyväksyntää odottavat': 'Proposals', 'Sertifiointi': 'Certification', 'Poisto': 'Retirement',
   'Hyväksy': 'Approve', 'Hylkää': 'Reject', '(tai n8n:n kautta)': '(or via n8n)', 'Ei ehdotuksia.': 'No proposals.',
