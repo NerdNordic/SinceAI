@@ -128,6 +128,16 @@ def registry():
     return engine.registry()
 
 
+@app.get("/api/registry/{fingerprint}/preview")
+def registry_preview(fingerprint: str):
+    try:
+        return engine.preview(fingerprint)
+    except KeyError:
+        raise HTTPException(404, "unknown chart")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
 @app.post("/api/registry/{fingerprint}/propose")
 def propose(fingerprint: str, body: ProposeIn):
     try:

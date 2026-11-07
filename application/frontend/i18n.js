@@ -8,6 +8,8 @@ const ENGLISH = {
   'Kaaviorekisteri': 'Chart registry', 'Kaavio': 'Chart', 'Omistaja': 'Owner', 'Käyttöjä': 'Uses',
   'Roolit': 'Roles', 'Tila': 'Status', 'ehdotus': 'proposal', 'sertifioi': 'certify', 'poista': 'retire',
   'Ehdota sertifiointia': 'Propose certification', 'Ehdota poistoa': 'Propose retirement',
+  'Esikatsele': 'Preview', 'Näytä poistetut': 'Show retired', 'Ladataan esikatselua…': 'Loading preview…',
+  'Kaikki kaaviot on poistettu. Rastita “Näytä poistetut” nähdäksesi ne.': 'All charts are retired. Tick “Show retired” to see them.',
   'Kiinnitä': 'Pin', 'kiinnitetty': 'pinned', 'Poista kojelaudalta:': 'Remove from dashboard',
   'Data Steward kiinnitti tämän kojelaudalle': 'Data Steward pinned this to the dashboard',
   'Ei vielä kaavioita. Kysy jotain tehdasroolina.': 'No charts yet. Ask a question using a plant role.',

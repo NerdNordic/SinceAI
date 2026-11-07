@@ -276,6 +276,24 @@ def registry() -> list[dict[str, Any]]:
     return out
 
 
+def preview(fp: str) -> dict[str, Any]:
+    """Rendered preview of a live chart for the Data Steward: the same governed
+    computation as dashboard tiles, so a chart can be verified before certification."""
+    chart = get_db().chart_registry.find_one({"fingerprint": fp}, {"embedding": 0, "embedding_text": 0, "_id": 0})
+    if not chart:
+        raise KeyError(fp)
+    if chart.get("status") == "retired":
+        raise ValueError("retired charts cannot be previewed")
+    out = {"fingerprint": chart["fingerprint"], "title": chart["title"], "status": chart["status"],
+           "owner": chart.get("owner"), "kpi_ids": chart.get("kpi_ids", [])}
+    try:
+        result = metrics.compute(ChartSpec.model_validate(chart["spec"]))
+        out.update(chart=result["chart"], rows=result["rows"], unit=result["unit"], receipt=result["receipt"])
+    except Exception as exc:  # noqa: BLE001 - a broken spec must not crash the preview
+        out["error"] = str(exc)[:200]
+    return out
+
+
 def propose(fp: str, action: str) -> dict[str, Any]:
     if action not in ("retire", "certify"):
         raise ValueError("action must be retire or certify")

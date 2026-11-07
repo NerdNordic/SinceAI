@@ -2,8 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Build Less assistant</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- <link rel="icon" type="image/webp" href="/static/favicon-teal-check.webp"> -->
+    <link rel="icon" type="image/webp" href="/static/favicon-bars.webp">
+    <title>Build Less assistant</title>
 <script>
 // Apply the saved theme before the page paints; storage may be blocked.
 try {
@@ -41,6 +43,7 @@ try {
   header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; padding: 14px 24px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
   h1 { font-size: 17px; margin: 0; letter-spacing: -0.01em; }
   h1 span { color: var(--accent); }
+  header .logo { height: 30px; width: 30px; border-radius: 7px; flex: none; }
   .roles { display: flex; gap: 6px; flex-wrap: wrap; }
   .roles button { border: 1px solid var(--line); background: var(--panel); padding: 7px 12px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 14px; color: var(--ink); }
   .roles button.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
@@ -156,11 +159,13 @@ try {
   .tile-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
   .pill.pin { background: var(--accent-soft); color: var(--accent); cursor: pointer; }
   .pinsel { border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px; font: inherit; font-size: 13px; background: var(--panel); color: var(--ink); }
+  .regtoggle { display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; font-weight: normal; font-size: 13px; color: var(--muted); cursor: pointer; }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
+    <img class="logo" src="/static/favicon-bars.webp" alt="" aria-hidden="true">
     <h1>Build <span>Less</span> {{ t('assistentti') }}</h1>
     <div class="roles">
       <button v-for="r in roles" :key="r.id" :class="{on: r.id === role}" @click="setRole(r.id)">{{ r.label }}</button>
@@ -224,10 +229,10 @@ try {
 
     <section>
       <div class="panel" v-if="role === 'data_steward'">
-        <h2>{{ t('Kaaviorekisteri') }}</h2>
+        <h2>{{ t('Kaaviorekisteri') }} <label class="regtoggle"><input type="checkbox" v-model="showRetired"> {{ t('Näytä poistetut') }}</label></h2>
         <table>
           <tr><th>{{ t('Kaavio') }}</th><th>{{ t('Omistaja') }}</th><th>{{ t('Käyttöjä') }}</th><th>{{ t('Roolit') }}</th><th>{{ t('Tila') }}</th><th></th></tr>
-          <tr v-for="c in registry" :key="c.fingerprint">
+          <tr v-for="c in visibleRegistry" :key="c.fingerprint">
             <td><b>{{ chartTitle(c) }}</b><br><span class="muted">{{ c.fingerprint }}</span></td>
             <td>{{ t(c.owner) }}</td><td>{{ c.use_count || 0 }}</td><td>{{ (c.used_by_roles || []).length }}</td>
             <td>{{ t(c.status) }}<span v-if="c.suggestion" class="pill URGENT">{{ t('ehdotus') }}: {{ t(c.suggestion) }}</span></td>
@@ -240,11 +245,13 @@ try {
                 </select>
                 <button class="btn ghost" @click="pin(c.fingerprint)">{{ t('Kiinnitä') }}</button>
               </template>
+              <button class="btn ghost" v-if="c.status !== 'retired'" @click="openPreview(c.fingerprint)">{{ t('Esikatsele') }}</button>
               <button class="btn ghost" v-if="c.status === 'active'" @click="propose(c.fingerprint, 'certify')">{{ t('Ehdota sertifiointia') }}</button>
               <button class="btn danger" v-if="c.status !== 'retired'" @click="propose(c.fingerprint, 'retire')">{{ t('Ehdota poistoa') }}</button>
             </td>
           </tr>
           <tr v-if="!registry.length"><td colspan="6" class="muted">{{ t('Ei vielä kaavioita. Kysy jotain tehdasroolina.') }}</td></tr>
+          <tr v-else-if="!visibleRegistry.length"><td colspan="6" class="muted">{{ t('Kaikki kaaviot on poistettu. Rastita “Näytä poistetut” nähdäksesi ne.') }}</td></tr>
         </table>
         <h2 style="margin-top:20px">{{ t('Hyväksyntää odottavat') }}</h2>
         <table>
@@ -415,6 +422,52 @@ try {
       </div>
     </div>
   </div>
+
+  <div class="overlay" v-if="preview || previewBusy" @click.self="closePreview()">
+    <div class="modal" v-if="preview">
+      <button class="close" @click="closePreview()" :aria-label="t('Sulje')">✕</button>
+      <h3>{{ preview.title }}</h3>
+      <div class="row" style="margin-top:0">
+        <span class="pill">{{ t(preview.status) }}</span>
+        <span class="pill" v-for="k in preview.kpi_ids" :key="k">{{ k }}</span>
+        <span class="muted">{{ t(preview.owner) }} · {{ preview.fingerprint }}</span>
+      </div>
+      <div class="chartbox" v-if="preview.chart && preview.chart.type !== 'table' && preview.chart.labels.length"><canvas id="previewchart"></canvas></div>
+      <div class="fc-legend" v-if="hasForecast(preview.chart)">
+        <span class="dot actual"></span>{{ legendActual }}<span class="dot forecast"></span>{{ legendForecast }}<span>·</span>{{ legendBlend }}
+      </div>
+      <div v-if="preview.chart && preview.chart.type === 'table'" style="overflow:auto;max-height:320px"><table>
+        <tr><th v-for="k in Object.keys(preview.rows[0] || {})">{{ t(k) }}</th></tr>
+        <tr v-for="r in preview.rows.slice(0, 15)"><td v-for="v in Object.values(r)">{{ typeof v === 'number' ? fmt(v) : t(v) }}</td></tr>
+      </table></div>
+      <div class="warn" v-if="preview.error">{{ t('Laskenta epäonnistui') }}: {{ preview.error }}</div>
+      <details v-if="preview.receipt"><summary>{{ t('Laskenta') }}</summary>
+        <dl class="receipt">
+          <dt>KPI</dt><dd>{{ preview.receipt.kpi.id }} {{ t(preview.receipt.kpi.name) }} <span class="pill">{{ t(preview.receipt.kpi.definition_status) }}</span></dd>
+          <dt>{{ t('Määritelmä') }}</dt><dd>{{ preview.receipt.definition }}</dd>
+          <template v-if="preview.receipt.source"><dt>{{ t('Lähde') }}</dt><dd>{{ preview.receipt.source.sheet || preview.receipt.source.collection }} · {{ fmt(preview.receipt.source.rows_used) }} {{ t('riviä') }}</dd></template>
+          <template v-if="preview.receipt.filters"><dt>{{ t('Suodattimet') }}</dt><dd>{{ filtersText(preview.receipt.filters) }}</dd></template>
+          <template v-if="preview.receipt.warnings && preview.receipt.warnings.length"><dt>{{ t('Huomiot') }}</dt><dd class="warn"><div v-for="w in preview.receipt.warnings">{{ w }}</div></dd></template>
+          <dt>{{ t('Sormenjälki') }}</dt><dd>{{ preview.fingerprint }}</dd>
+        </dl>
+      </details>
+      <details v-if="preview.rows && preview.rows.length" :open="preview.chart && preview.chart.type === 'table'"><summary>{{ t('Rivit') }} ({{ preview.rows.length }})</summary>
+        <div style="overflow:auto;max-height:300px"><table>
+          <tr><th v-for="k in Object.keys(preview.rows[0])">{{ t(k) }}</th></tr>
+          <tr v-for="r in preview.rows.slice(0, 50)"><td v-for="v in Object.values(r)">{{ typeof v === 'number' ? fmt(v) : t(v) }}</td></tr>
+        </table></div>
+      </details>
+    </div>
+    <div class="modal" v-else-if="previewBusy">
+      <div class="skel" role="status" :aria-label="t('Ladataan esikatselua…')">
+        <div aria-hidden="true">
+          <div class="skeleton sk-h"></div>
+          <div class="skeleton sk-chart sm"></div>
+        </div>
+        <div class="sk-cap">{{ t('Ladataan esikatselua…') }}</div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -467,6 +520,7 @@ createApp({
     roles: [], role: 'tehtaan_johtaja', brief: null, cardCharts: {}, meter: null, question: '', busy: false, answers: [],
     sessionId: null, registry: [], proposals: [], auditLog: [],
     modal: null, modalBusy: false, cardSeq: 0,
+    showRetired: false, preview: null, previewBusy: false, previewSeq: 0,
     view: 'dash', dash: null, dashBusy: false, pinTarget: {}, pinnedBy: {},
   }),
   computed: {
@@ -474,12 +528,13 @@ createApp({
     locale() { return this.language === 'fi' ? 'fi-FI' : 'en-GB'; },
     roleLabel() { const r = this.roles.find(x => x.id === this.role); return r ? r.label : ''; },
     factoryRoles() { return this.roles.filter(r => r.id !== 'data_steward'); },
+    visibleRegistry() { return this.showRetired ? this.registry : this.registry.filter(c => c.status !== 'retired'); },
     legendActual() { return this.t('Toteuma (actual-like)'); },
     legendForecast() { return this.t('Ennuste (forecast-like)'); },
     legendBlend() { return this.t('Sekoittunut väri = osittain ennusteperäistä'); },
   },
   async mounted() {
-    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') this.closeCard(); });
+      window.addEventListener('keydown', (e) => { if (e.key === 'Escape') { this.closeCard(); this.closePreview(); } });
     this.updateLanguage();
     try { await this.refresh(); } catch { alert(this.t('Pyyntö epäonnistui. Yritä uudelleen.')); }
   },
@@ -688,6 +743,27 @@ createApp({
       this.modal = null;
       this.modalBusy = false;
       if (modalChart) { modalChart.destroy(); modalChart = null; }
+    },
+    async openPreview(fp) {
+      const seq = ++this.previewSeq;
+      this.previewBusy = true;
+      this.preview = null;
+      try {
+        const res = await fetch('/api/registry/' + fp + '/preview');
+        if (!res.ok) throw new Error(await res.text());
+        const d = await res.json();
+        if (seq !== this.previewSeq) return;
+        this.preview = d;
+        await nextTick();
+        this.drawChart('previewchart', d.chart, d.unit);
+      } catch (e) { if (seq === this.previewSeq) alert(this.t('Virhe') + ': ' + e.message); }
+      if (seq === this.previewSeq) this.previewBusy = false;
+    },
+    closePreview() {
+      this.previewSeq++;
+      this.preview = null;
+      this.previewBusy = false;
+      if (charts['previewchart']) { charts['previewchart'].destroy(); delete charts['previewchart']; }
     },
     async propose(fp, action) {
       await fetch('/api/registry/' + fp + '/propose', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) });

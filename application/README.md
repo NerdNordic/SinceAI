@@ -141,6 +141,7 @@ Use `/docs` for the generated request/response schemas.
 | GET | `/api/results/{result_id}/raw.csv` | Source rows for a computed result. |
 | GET | `/api/meter` | Request and chart-reuse counts. |
 | GET | `/api/registry` | Chart lifecycle, ownership, usage and suggestions. |
+| GET | `/api/registry/{fingerprint}/preview` | Rendered preview of a live (non-retired) chart with receipt. |
 | POST | `/api/registry/{fingerprint}/propose` | Create a `certify` or `retire` proposal. |
 | POST | `/api/registry/decision` | Approve/reject a proposal; optional secret check as configured. |
 | GET | `/api/proposals` | Proposal list. |

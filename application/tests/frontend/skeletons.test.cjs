@@ -18,6 +18,7 @@ const states = [
   ['Haetaan sertifioituja kaavioita…', 'class="skel" v-if="dashBusy"'],
   ['Gemini tulkitsee kysymystä ja moottori laskee…', 'class="skel" v-if="busy"'],
   ['Ladataan kortin tietoja…', 'v-else-if="modalBusy"'],
+  ['Ladataan esikatselua…', 'v-else-if="previewBusy"'],
 ];
 
 test('skeleton styling defines a themed shimmer that respects reduced motion', () => {
@@ -29,9 +30,9 @@ test('skeleton styling defines a themed shimmer that respects reduced motion', (
 });
 
 test('every busy state renders one announced skeleton block', () => {
-  assert.equal((html.match(/class="skel"/g) || []).length, 4);
-  assert.equal((html.match(/role="status" :aria-label="t\('/g) || []).length, 4);
-  assert.equal((html.match(/role="status"/g) || []).length, 4);
+  assert.equal((html.match(/class="skel"/g) || []).length, 5);
+  assert.equal((html.match(/role="status" :aria-label="t\('/g) || []).length, 5);
+  assert.equal((html.match(/role="status"/g) || []).length, 5);
   assert.ok(!html.includes('class="spinner"'));
 });
 
@@ -48,6 +49,7 @@ test('skeletons mimic the shapes they replace', () => {
   assert.ok(/class="skel" v-if="dashBusy"[\s\S]{0,400}?class="tiles"[\s\S]{0,300}?skeleton sk-chart/.test(html));
   assert.ok(/class="skel" v-if="busy"[\s\S]{0,400}?skeleton sk-bubble[\s\S]{0,400}?skeleton sk-chart/.test(html));
   assert.ok(/v-else-if="modalBusy"[\s\S]{0,400}?class="skeleton sk-chart sm"/.test(html));
+  assert.ok(/v-else-if="previewBusy"[\s\S]{0,400}?class="skeleton sk-chart sm"/.test(html));
   for (const cls of ['skeleton sk-h', 'skeleton sk-l1', 'skeleton sk-l2'])
     assert.ok(html.includes(cls), cls);
 });

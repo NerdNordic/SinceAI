@@ -480,6 +480,21 @@ def test_dashboard_pin_unpin_retire(client):
     assert "chart_pinned" in events and "chart_unpinned" in events
 
 
+def test_registry_preview_before_and_after_retirement(client):
+    fp = ask(client, "Nettomyynti kuukausittain", role="data_steward")["fingerprint"]   # active chart
+    r = client.get(f"/api/registry/{fp}/preview")
+    assert r.status_code == 200
+    d = r.json()
+    assert d["status"] == "active" and d["fingerprint"] == fp
+    assert d["chart"]["labels"] and d["chart"]["datasets"][0]["data"]
+    assert d["receipt"]["kpi"]["id"] == "KPI-001"
+    assert d["rows"]
+    p = client.post(f"/api/registry/{fp}/propose", json={"action": "retire"}).json()
+    client.post("/api/registry/decision", json={"proposal_id": p["proposal_id"], "approved": True})
+    assert client.get(f"/api/registry/{fp}/preview").status_code == 400                # retired -> no preview
+    assert client.get("/api/registry/cf-nope/preview").status_code == 404
+
+
 def test_dashboard_tile_error_is_isolated(client, monkeypatch):
     a = ask(client, "Nettomyynti markkinoittain")
     fp = a["fingerprint"]
