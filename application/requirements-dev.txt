@@ -2,3 +2,4 @@
 pytest>=8.0
 httpx>=0.27
 mongomock>=4.1
+imageio-ffmpeg>=0.5     # video demo encoder (tools/video_demo)

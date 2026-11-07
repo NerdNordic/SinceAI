@@ -1,0 +1,4 @@
+node_modules/
+.work/
+frames/
+timestamps.json

@@ -1,0 +1,8 @@
+{
+  "name": "sinceai-video-demo",
+  "private": true,
+  "description": "Playwright-core dependency for the SinceAI video demo recorder (application/tools/video_demo).",
+  "dependencies": {
+    "playwright-core": "1.65.0"
+  }
+}

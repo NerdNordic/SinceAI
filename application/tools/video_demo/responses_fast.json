@@ -1,0 +1,81 @@
+{
+  "_comment": "Canned Gemini responses for VIDEO_DEMO_FAST mode. specs and answers were captured from real gemini-3.5-flash-lite runs against the seeded data pack.",
+  "questions": {
+    "Show net sales month over month": {
+      "spec": {
+        "metric": "Net Sales Growth",
+        "dimensions": [
+          "month"
+        ],
+        "filters": {
+          "product_ids": [],
+          "market_ids": [],
+          "plants": [
+            "Plant-A"
+          ],
+          "statuses": []
+        },
+        "chart_type": "line",
+        "intent": "recurring",
+        "title": "Net Sales Growth by Month",
+        "understood": true,
+        "mode": "data"
+      },
+      "answers": {
+        "en": "Net sales growth fluctuated significantly month over month, reaching a peak of 26.01% in May 2026 and dropping to a low of -24.08% in July 2026. October 2026 recorded a net sales growth of -6.12%. Please note that 154 out of 320 source rows are forecast-like rather than actuals."
+      }
+    },
+    "How many units of Xarelto have we shipped by month?": {
+      "spec": {
+        "metric": "Units Shipped",
+        "dimensions": [
+          "month"
+        ],
+        "filters": {
+          "product_ids": [
+            "P-XAR"
+          ],
+          "market_ids": [],
+          "plants": [
+            "Plant-A"
+          ],
+          "statuses": []
+        },
+        "chart_type": "line",
+        "intent": "recurring",
+        "title": "Units Shipped for Xarelto by Month",
+        "understood": true,
+        "mode": "data"
+      },
+      "answers": {
+        "en": "Xarelto shipments reached their highest level in June 2026 with 701,502 units and their lowest in September 2026 with 311,774 units. Monthly shipments across the remaining months fluctuated between 376,297 and 632,333 units. Please note that 33 out of 80 source rows are forecast-like rather than actuals."
+      }
+    },
+    "Montako Xarelon yksikköä on toimitettu kuukausittain?": {
+      "spec": {
+        "metric": "Units Shipped",
+        "dimensions": [
+          "month"
+        ],
+        "filters": {
+          "product_ids": [
+            "P-XAR"
+          ],
+          "market_ids": [],
+          "plants": [
+            "Plant-A"
+          ],
+          "statuses": []
+        },
+        "chart_type": "line",
+        "intent": "recurring",
+        "title": "Xarelton toimitetut yksiköt kuukausittain",
+        "understood": true,
+        "mode": "data"
+      },
+      "answers": {
+        "fi": "Xareltoa on toimitettu kuukausittain eniten kesäkuussa (701 502 kpl) ja vähiten syyskuussa (311 774 kpl). Muita toimitetut määrät vaihtelevat kuukausittain esimerkiksi tammikuun 393 742 kappaleen ja toukokuun 561 836 kappaleen välillä. Huomaathan, että osa lähderiveistä on ennustetyyppisiä eikä toteumaa."
+      }
+    }
+  }
+}
