@@ -10,7 +10,9 @@ governance; not every challenge workflow is implemented by this application.
 ```text
 Browser (Vue 3 + Chart.js)
   -> FastAPI routes and language/input validation
-     -> Gemini: validated ChartSpec / conversational reply
+     -> LLM router: validated intent and allowlisted Python dispatch
+        -> Briefing navigation or evidence-based conversation
+        -> Analytics interpreter: validated request brief and ChartSpec
      -> Python request-brief readiness gate; pending clarification if blocked
      -> Decision engine: fingerprint and registry lookup
         -> Python metrics + replenishment model: computed values and evidence

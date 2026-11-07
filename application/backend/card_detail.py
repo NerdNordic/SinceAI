@@ -223,7 +223,7 @@ def card_detail(role: str, key: str) -> dict[str, Any]:
         raise KeyError(key)
     out: dict[str, Any] = {"key": key}
     out.update({k: card.get(k) for k in ("label", "value", "unit", "tone", "target",
-                                        "lower_is_better", "ask_hint")})
+                                        "lower_is_better")})
     out["description"] = DESCRIPTIONS.get(key, "")
     builder = _BUILDERS.get(key)
     if builder:

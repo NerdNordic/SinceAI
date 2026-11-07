@@ -10,7 +10,7 @@ const html = fs.readFileSync(path.join(staticDir, 'index.html'), 'utf8');
 const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]);
 const translations = fs.readFileSync(path.join(staticDir, 'i18n.js'), 'utf8');
 
-function setup(saved, blocked = false) {
+function setup(saved, blocked = false, askResponse = null) {
   const storage = new Map(saved ? [['sinceai-language', saved]] : []);
   const requests = [];
   const alerts = [];
@@ -27,7 +27,7 @@ function setup(saved, blocked = false) {
     Vue: {createApp(value) { options = value; return {mount() {}}; }, nextTick: async () => {}},
     fetch: async (url, init) => {
       requests.push({url, body: init?.body && JSON.parse(init.body)});
-      const data = url.startsWith('/api/ask') ? {decision: 'CHAT', answer: 'answer', session_id: 'test'} :
+      const data = url.startsWith('/api/ask') ? askResponse || {decision: 'CHAT', answer: 'answer', session_id: 'test'} :
         url.startsWith('/api/roles') ? [{id: 'tehtaan_johtaja', label: root.lang === 'en' ? 'Plant director' : 'Tehtaan johtaja'}] : {};
       return {ok: true, json: async () => data};
     },
@@ -64,7 +64,7 @@ test('switching localizes UI, examples, dates and requests without losing conver
   assert.equal(app.t('__proto__'), '__proto__');
   assert.equal(app.t('month'), 'Kuukausi');
   assert.equal(app.locale, 'fi-FI');
-  assert.match(app.examples.tehtaan_johtaja[0], /Mitkä/);
+  assert.equal(app.examples, undefined);
   assert.equal(app.theme, theme);
   assert.equal(app.sessionId, 'existing');
   assert.equal(app.answers.length, 1);
@@ -121,4 +121,109 @@ test('busy requests cannot abandon a conversation', async () => {
   assert.equal(await app.newChat(), false);
   assert.equal(app.sessionId, 'pending-session');
   assert.equal(requests.length, 0);
+});
+
+test('briefing action displays refreshed role cards, scrolls to them and preserves pending work', async () => {
+  const brief = {role: 'Plant director', cards: [{key: 'otif', label: 'Delivery reliability', value: 97.5}]};
+  const response = {decision: 'CHAT', answer: 'Here is your current briefing.', session_id: 'existing',
+    intake: {pending: true}, action: {name: 'open_briefing', briefing: brief}};
+  const {app, requests} = setup('en', false, response);
+  let displayed = false;
+  app.$refs.briefing = {scrollIntoView() { displayed = true; }};
+  app.$refs.input = {scrollIntoView() { assert.fail('must focus the briefing'); }};
+  app.sessionId = 'existing'; app.pendingRequest = true; app.question = 'Open teh briefing';
+  app.brief = {cards: [{value: 0}]};
+  await app.ask();
+  assert.deepEqual(app.brief, brief);
+  assert.equal(app.brief.cards[0].value, 97.5);
+  assert.equal(displayed, true);
+  assert.equal(app.sessionId, 'existing');
+  assert.equal(app.pendingRequest, true);
+  assert.equal(requests.filter(r => r.url === '/api/ask').length, 1);
+  assert.match(html, /ref="briefing"/);
+  assert.match(html, /v-for="c in brief.cards"/);
+});
+
+test('contextual suggestions submit the answer in the same session, role and language', async () => {
+  const suggestion = {question_id: 'markets', label: 'Vain Suomi', answer: 'Vain Suomi'};
+  const response = {decision: 'CHAT', session_id: 'existing', answer: 'Question', intake: {pending: true,
+    questions: [{id: 'markets', text: 'Kaikki markkinat vai tietyt maat?'}]}, suggestions: [suggestion]};
+  const {app, requests} = setup('fi', false, response);
+  app.sessionId = 'existing'; app.pendingRequest = true; app.question = 'A request';
+  await app.ask();
+  const current = app.clarificationSuggestions[0];
+  assert.equal(current.label, 'Vain Suomi');
+  await app.chooseSuggestion(current);
+  const body = requests.filter(r => r.url === '/api/ask').at(-1).body;
+  assert.equal(body.question, 'Vain Suomi');
+  assert.equal(body.session_id, 'existing');
+  assert.equal(body.role, 'tehtaan_johtaja');
+  assert.equal(body.language, 'fi');
+});
+
+test('stale suggestions cannot submit after typing, language change, completion or abandonment', async () => {
+  const suggestion = {question_id: 'usage', label: 'One-off answer', answer: 'One-off answer'};
+  const {app, requests} = setup();
+  app.sessionId = 'existing'; app.pendingRequest = true; app.clarificationSuggestions = [suggestion];
+  app.clearSuggestions(); // Same handler used by manual text input.
+  await app.chooseSuggestion(suggestion);
+  assert.equal(requests.length, 0);
+  app.clarificationSuggestions = [suggestion];
+  await app.setLanguage('fi');
+  assert.equal(app.clarificationSuggestions.length, 0);
+  app.clarificationSuggestions = [suggestion];
+  app.question = 'A different request';
+  await app.ask(); // Fixture returns a completed CHAT with no pending state.
+  assert.equal(app.pendingRequest, false);
+  assert.equal(app.clarificationSuggestions.length, 0);
+  app.pendingRequest = true; app.clarificationSuggestions = [suggestion];
+  await app.newChat();
+  assert.equal(app.clarificationSuggestions.length, 0);
+});
+
+test('only latest question suggestions appear below the input, with plain-text labels', async () => {
+  const response = {decision: 'CHAT', session_id: 'existing', answer: 'Question', intake: {pending: true,
+    questions: [{id: 'current'}]}, suggestions: [
+      {question_id: 'old', label: 'stale', answer: 'stale'},
+      {question_id: 'current', label: '<b>plain text</b>', answer: 'current answer'}]};
+  const {app} = setup('en', false, response);
+  app.question = 'request';
+  await app.ask();
+  assert.equal(app.clarificationSuggestions.length, 1);
+  assert.equal(app.clarificationSuggestions[0].question_id, 'current');
+  assert.ok(html.indexOf('v-for="s in clarificationSuggestions"') > html.indexOf('<input v-model="question"'));
+  assert.ok(!html.includes('v-for="s in a.suggestions"'));
+  assert.ok(!html.includes('examples[role]'));
+  assert.ok(!translations.includes('const EXAMPLES'));
+  assert.match(html, /chooseSuggestion\(s\)[^>]*>\{\{ s.label \}\}/);
+  assert.ok(!html.includes('v-html="s.label"'));
+});
+
+test('generation failure leaves manual clarification entry available without suggestions', async () => {
+  const response = {decision: 'CHAT', session_id: 'existing', answer: 'Which markets?',
+    intake: {pending: true, questions: [{id: 'markets'}]}, suggestions: []};
+  const {app, alerts} = setup('en', false, response);
+  app.question = 'request';
+  await app.ask();
+  assert.equal(app.pendingRequest, true);
+  assert.equal(app.clarificationSuggestions.length, 0);
+  assert.equal(app.busy, false);
+  assert.equal(app.answers.at(-1).answer, 'Which markets?');
+  assert.equal(alerts.length, 0);
+});
+
+test('validated live-response shape populates dynamic suggestions for a combined scope question', async () => {
+  const labels = ['Kaikki markkinat ja kaikki tuotteet', 'Vain Suomi, kaikki tuotteet', 'Vain Saksa, kaikki tuotteet'];
+  const response = {decision: 'CLARIFY', session_id: 'current-session', answer: 'Haluatko kaikki markkinat ja tuotteet?',
+    intake: {pending: true, questions: [{id: 'scope', field: 'scope'}]},
+    suggestions: labels.map(label => ({question_id: 'scope', label, answer: label}))};
+  const {app, requests} = setup('fi', false, response);
+  app.question = 'Mitkä tuotteet ovat loppumisvaarassa?';
+  await app.ask();
+  assert.deepEqual(Array.from(app.clarificationSuggestions, s => s.label), labels);
+  await app.chooseSuggestion(app.clarificationSuggestions[1]);
+  const submitted = requests.filter(r => r.url === '/api/ask').at(-1).body;
+  assert.equal(submitted.question, 'Vain Suomi, kaikki tuotteet');
+  assert.equal(submitted.session_id, 'current-session');
+  assert.equal(submitted.language, 'fi');
 });

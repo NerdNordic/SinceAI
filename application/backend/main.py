@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 from . import briefing as briefing_mod
 from . import card_detail as card_detail_mod
-from . import config, dashboards, engine, metrics
+from . import config, dashboards, engine, metrics, routing
 from .db import get_db
 from .i18n import Language, role_label
 from .intake import message
@@ -82,7 +82,7 @@ def ask(body: AskIn):
     if not body.question.strip() and not body.abandon_pending:
         raise HTTPException(400, "empty question")
     try:
-        return engine.ask(body.question.strip(), body.role, body.session_id, body.language, body.abandon_pending)
+        return routing.ask(body.question.strip(), body.role, body.session_id, body.language, body.abandon_pending)
     except InterpretationUnavailable:
         raise HTTPException(503, message("failed", body.language)) from None
 

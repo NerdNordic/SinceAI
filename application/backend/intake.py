@@ -8,7 +8,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .i18n import Language
 
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 class IntakeQuestion(BaseModel):
     id: str = Field(max_length=80)
-    field: Literal["metric", "scope", "time", "definition", "usage", "business_decision", "audience", "capability"]
+    field: Literal["metric", "scope", "time", "definition", "usage", "business_decision", "audience", "capability", "routing"]
     text: str = Field(max_length=600)
 
 
@@ -56,6 +56,47 @@ class Alternative(BaseModel):
     global_scope: bool = False
 
 
+class SuggestionChanges(BaseModel):
+    """Untrusted model-proposed changes; validated before storing and applying."""
+    model_config = {"extra": "forbid", "strict": True}
+    selected_metric: str | None = None
+    usage: Literal["one_off", "recurring"] | None = None
+    market_ids: list[str] | None = Field(default=None, max_length=100)
+    product_ids: list[str] | None = Field(default=None, max_length=100)
+    plants: list[str] | None = Field(default=None, max_length=50)
+    business_decision: str | None = Field(default=None, max_length=300)
+    audience: str | None = Field(default=None, max_length=300)
+    period: Literal["all_available", "range", "relative", "latest"] | None = None
+    start_month: str | None = None
+    end_month: str | None = None
+    granularity: Literal["total", "month", "quarter", "year"] | None = None
+    comparison: Literal["none", "mom", "yoy", "custom"] | None = None
+
+
+class ClarificationSuggestion(BaseModel):
+    model_config = {"extra": "forbid", "strict": True}
+    question_id: str = Field(default="", max_length=80)
+    label: str = Field(min_length=1, max_length=100)
+    answer: str = Field(min_length=1, max_length=300)
+    changes: SuggestionChanges = Field(default_factory=SuggestionChanges)
+
+    def public(self):
+        return self.model_dump(exclude={"changes"})
+
+
+class ModelClarification(BaseModel):
+    model_config = {"extra": "forbid", "strict": True}
+    question: IntakeQuestion
+    suggestions: list[ClarificationSuggestion] = Field(min_length=2, max_length=3)
+
+    @model_validator(mode="after")
+    def bind_answers_to_question(self):
+        for suggestion in self.suggestions:
+            if not suggestion.question_id:
+                suggestion.question_id = self.question.id
+        return self
+
+
 class PendingRequest(BaseModel):
     original_request: str
     brief: RequestBrief
@@ -63,6 +104,9 @@ class PendingRequest(BaseModel):
     latest_questions: list[IntakeQuestion] = Field(default_factory=list)
     alternatives: list[Alternative] = Field(default_factory=list)
     draft_spec: dict = Field(default_factory=dict)
+    suggestions: list[ClarificationSuggestion] = Field(default_factory=list, max_length=4)
+    suggestion_language: Language | None = None
+    outcome: Literal["ASK", "READY", "UNSUPPORTED"] = "ASK"
 
 
 def message(key: str, language: Language, **values) -> str:
@@ -73,14 +117,15 @@ def message(key: str, language: Language, **values) -> str:
 
 MESSAGES = {
     "describe": ("What analytics do you need, and what decision should they support?", "Mitä analytiikkaa tarvitset ja mitä päätöstä sen pitäisi tukea?"),
-    "metric": ("Which governed metric should we use?", "Mitä hallittua mittaria käytetään?"),
+    "metric": ("Which measure would you like to use?", "Minkä mittarin perusteella haluat tarkastella tilannetta?"),
     "multiple": ("This execution path handles one metric at a time. The full request is retained: {metrics}. Select the first metric or explicitly accept a narrower scope.", "Tämä suorituspolku käsittelee yhden mittarin kerrallaan. Koko pyyntö säilytetään: {metrics}. Valitse ensimmäinen mittari tai hyväksy rajatumpi pyyntö."),
     "unsupported": ("The requested metric or capability is not implemented here: {items}. This is an implementation limitation, not proof that source data is missing.", "Pyydettyä mittaria tai ominaisuutta ei ole toteutettu tässä: {items}. Tämä on toteutuksen rajoitus, ei todiste lähdedatan puuttumisesta."),
     "invalid": ("Unknown or conflicting scope identifiers: {items}. Please correct them; the query has not been broadened.", "Tuntemattomia tai ristiriitaisia rajauksia: {items}. Korjaa ne; hakua ei ole laajennettu."),
     "scope": ("Choose explicit supported product/market IDs or global scope; regional expansion is not implemented.", "Valitse tuote-/markkinatunnukset tai maailmanlaajuinen rajaus; aluelaajennusta ei ole toteutettu."),
     "time": ("Arbitrary periods, forecast-only results, quarterly/yearly aggregation and custom comparisons are not implemented by this path. May I use the supported all-available-data view instead?", "Vapaita ajanjaksoja, pelkkiä ennusteita, neljännes-/vuosikoosteita tai mukautettuja vertailuja ei ole toteutettu tässä. Käytetäänkö tuettua näkymää kaikesta saatavilla olevasta datasta?"),
     "missing_year": ("Year-over-year comparison needs prior-year data; the selected source data does not contain the required history. This path currently computes month-over-month growth only.", "Vuosivertailu tarvitsee edellisvuoden dataa, jota valittu lähdehistoria ei sisällä. Tämä polku laskee vain kuukausikasvun."),
-    "definition": ("Please define {terms} using a supported governed metric before we calculate anything.", "Määrittele {terms} tuetun hallitun mittarin avulla ennen laskentaa."),
+    "definition": ("What do you mean by “{terms}” here? Choose the measure you want to use.", "Mitä tarkoitat ilmauksella ”{terms}”? Valitse mittari, jonka perusteella haluat tarkastella tilannetta."),
+    "details": ("What would you like to find out, and what information should we use?", "Mitä haluat selvittää, ja minkä tiedon perusteella?"),
     "usage": ("Would a one-off answer suffice, or is this a recurring analytics need?", "Riittääkö kertavastaus vai onko tarve toistuva?"),
     "decision": ("What business decision will this support?", "Mitä liiketoimintapäätöstä tämä tukee?"),
     "audience": ("Who will use this recurring view?", "Kuka käyttää tätä toistuvaa näkymää?"),
@@ -189,9 +234,12 @@ def prepare_brief(brief: RequestBrief, spec: ChartSpec, question: str, pending: 
     if old:
         # Only explicit replies accept a reduced metric scope or a proposed alternative.
         selected = mentioned_metrics(question)
-        if len(selected) == 1 and selected[0] in old.requested_metrics and not re.search(r"\b(not|don't|ei|älä)\b", full):
+        asked_metric = any(q.field == "metric" or (q.field == "definition" and old.unresolved_terms)
+                           for q in pending.latest_questions)
+        if (len(selected) == 1 and (selected[0] in old.requested_metrics or asked_metric)
+                and not re.search(r"\b(not|don't|ei|älä)\b", full)):
             brief.selected_metric = selected[0]
-            brief.unresolved_terms, brief.unsupported = [], []
+            brief.unresolved_terms = []
         yes = full in {"yes", "yes please", "ok", "okay", "kyllä", "sopii", "hyväksyn"}
         accepted_time = False
         for alternative in pending.alternatives:
@@ -286,7 +334,10 @@ def readiness(brief: RequestBrief, spec: ChartSpec, outcome: str, language: Lang
     if unsupported or brief.unsupported or outcome == "UNSUPPORTED":
         block("capability", "unsupported", items=", ".join([*unsupported, *brief.unsupported]))
     if metric not in METRICS and not unsupported:
-        block("metric", "metric")
+        if brief.unresolved_terms:
+            block("metric", "definition", terms=", ".join(brief.unresolved_terms))
+        else:
+            block("metric", "metric")
     if len(set(spec.dimensions)) > 2:
         block("capability", "unsupported", items="more than two dimensions")
     if spec.filters.statuses and metric != "Replenishment Reorder-By Date":
@@ -300,12 +351,20 @@ def readiness(brief: RequestBrief, spec: ChartSpec, outcome: str, language: Lang
     if brief.scope == "regional" or brief.regions:
         block("scope", "scope")
         alternatives.append(Alternative(id="global", label=message("global", language), global_scope=True))
-    if brief.unresolved_terms:
+    if brief.unresolved_terms and not any(q.field == "metric" for q in questions):
         block("definition", "definition", terms=", ".join(brief.unresolved_terms))
     if brief.missing_information:
         material = [field for field in brief.missing_information if field in {"metric", "scope", "time", "definition", "capability"}]
         for field in material:
-            block(field, "definition", terms=field)
+            if field in {q.field for q in questions}:
+                continue
+            if field == "metric" and metric in METRICS:
+                continue
+            if field == "definition" and selected and not brief.unresolved_terms:
+                continue
+            if field == "definition" and brief.unresolved_terms and any(q.field == "metric" for q in questions):
+                continue
+            block(field, {"metric": "metric", "scope": "scope", "time": "time"}.get(field, "details"))
     time_limited = brief.period in {"range", "relative"} or brief.granularity in {"quarter", "year"} or brief.actual_forecast == "forecast_only" or brief.comparison == "custom"
     time_limited = time_limited or brief.start_month is not None or brief.end_month is not None
     if brief.comparison == "mom" and metric != "Net Sales Growth":
@@ -334,12 +393,16 @@ def readiness(brief: RequestBrief, spec: ChartSpec, outcome: str, language: Lang
         if brief.usage == "recurring" and not brief.audience:
             block("audience", "audience")
     resolved = {"business_decision": bool(brief.business_decision), "audience": bool(brief.audience),
-                "usage": brief.usage != "unknown", "metric": bool(selected)}
+                "usage": brief.usage != "unknown", "metric": bool(selected),
+                "definition": bool(selected) and not brief.unresolved_terms}
     if outcome != "READY" or not spec.understood:
         for q in brief.questions:
+            if q.field == "definition" and brief.unresolved_terms and any(item.field == "metric" for item in questions):
+                continue
             if not resolved.get(q.field) and q.field not in {item.field for item in questions}:
                 questions.append(q)
-    if not questions and not brief.questions and (outcome != "READY" or not spec.understood):
+    resolved_selection = selected in METRICS and not brief.unresolved_terms and not brief.unsupported
+    if not questions and not brief.questions and (outcome != "READY" or not spec.understood) and not resolved_selection:
         block("definition", "metric")
     for question in questions[:2]:
         if question.text.count("?") > 1:

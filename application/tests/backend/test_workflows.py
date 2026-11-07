@@ -25,7 +25,8 @@ os.environ["TODAY"] = "2026-11-06"
 os.environ["GEMINI_API_KEY"] = ""   # no network (also blocks .env from setting it): embeddings and search fall back
 
 from backend import dashboards as dashmod, db as dbmod, engine, spec as specmod  # noqa: E402
-from backend.spec import ChartSpec, Filters  # noqa: E402
+from backend.spec import ChartSpec, Filters, Interpretation  # noqa: E402
+from backend.intake import RequestBrief  # noqa: E402
 
 # question -> what Gemini would return
 FAKE = {
@@ -42,9 +43,8 @@ FAKE = {
     "ennustepoikkeama tuotteittain toteumasta": ChartSpec(metric="Forecast Variance", dimensions=["product"], actuals_only=True, title="Ennustepoikkeama"),
     "ennustepoikkeama kuukausittain markkinoittain": ChartSpec(metric="Forecast Variance", dimensions=["month", "market"],
                                                                 chart_type="line", title="Ennustepoikkeama markkinoittain"),
-    # follow-up and chat
+    # follow-up
     "entä plant b?": ChartSpec(metric="On-Time In-Full", dimensions=["month"], filters=Filters(plants=["Plant-B"]), chart_type="line", title="Toimitusvarmuus kuukausittain, Plant B"),
-    "mitä osaat?": ChartSpec(metric="UNSUPPORTED", mode="chat", reply="Voin näyttää tehtaan luvut ja kaaviot hallituilla määritelmillä."),
     "nettomyynti markkinoittain": ChartSpec(metric="Net Sales", dimensions=["market"], title="Nettomyynti markkinoittain"),
     "toimitetut kappaleet markkinoittain": ChartSpec(metric="Units Shipped", dimensions=["market"], title="Toimitetut kappaleet"),
     "nettomyynti kuukausittain": ChartSpec(metric="Net Sales", dimensions=["month"], chart_type="line", title="Nettomyynti kuukausittain"),
@@ -53,6 +53,13 @@ FAKE = {
                                                            chart_type="line", title="Nubeqan myynti Saksassa"),
 }
 PROMPTS: list[str] = []
+
+
+def interpretation(spec):
+    """Use the production response contract in test doubles too."""
+    return Interpretation(spec=spec, outcome="READY" if spec.understood else "ASK",
+                          brief=RequestBrief(usage=spec.intent,
+                              actual_forecast="actual_only" if spec.actuals_only else "unknown"))
 
 
 @pytest.fixture(scope="module")
@@ -67,10 +74,10 @@ def client():
     seed.write_mongo(db, cols, skip_vector_indexes=True, wait=0)
     dbmod.set_db(db)
 
-    def fake_gemini(prompt: str, language="fi") -> ChartSpec:
+    def fake_gemini(prompt: str, language="fi") -> Interpretation:
         PROMPTS.append(prompt)
         q = prompt.rsplit('"""', 2)[-2].strip().lower()
-        return FAKE[q].model_copy(deep=True)
+        return interpretation(FAKE[q].model_copy(deep=True))
 
     specmod._call_gemini = fake_gemini
     from fastapi.testclient import TestClient
@@ -202,7 +209,7 @@ def test_answer_and_clarify(client):
     assert a["decision"] == "ANSWER" and len(a["rows"]) == 1
     c = ask(client, "Mikä on budjettipoikkeama?")
     assert c["decision"] == "CLARIFY" and "Budjetti" in c["reason"]
-    assert [s["question"] for s in c["suggestions"]] == ["Net Sales", "On-Time In-Full", "Units Shipped", "Inventory Coverage"]
+    assert c["suggestions"] == []  # Optional generator is unavailable; never substitute unrelated KPIs.
     assert "suggestions" not in a
 
 
@@ -210,8 +217,7 @@ def test_clarify_suggests_the_mentioned_metrics(client):
     q = "Create a global Nubeqa dashboard showing sales growth, forecast variance and market access by country."
     a = ask(client, q)
     assert a["decision"] == "CLARIFY"
-    assert [s["question"] for s in a["suggestions"]] == ["Forecast Variance", "Market Access Coverage", "Net Sales Growth"]
-    assert a["suggestions"][0]["label"] == "Ennustepoikkeama"          # localized chip label (fi)
+    assert a["suggestions"] == []  # No static clarification fallback when the model is unavailable.
 
 
 def test_growth_and_variance(client):
@@ -278,10 +284,10 @@ def test_meter_and_briefings(client):
     b = client.get("/api/briefing/tehtaan_johtaja").json()
     otif = next(c for c in b["cards"] if c["key"] == "otif")
     assert otif["target"] == 95.0 and otif["lower_is_better"] is False
-    assert otif["ask_hint"] == "Näytä toimitusvarmuus kuukausittain"
+    assert "ask_hint" not in otif
     urgent = next(c for c in b["cards"] if c["key"] == "urgent")
     assert urgent["target"] == 0 and urgent["lower_is_better"] is True
-    assert urgent["ask_hint"] == "Mitkä tilaukset pitää tehdä tällä viikolla?"
+    assert "ask_hint" not in urgent
 
 
 def test_briefing_deviations_follow_targets(client, monkeypatch):
@@ -308,7 +314,7 @@ def test_card_detail(client):
     assert d["description"] and d["kpi"]["id"] == "KPI-020" and d["kpi"]["definition"]
     assert d["chart"]["type"] == "line" and d["chart"]["labels"]
     assert d["chart"]["datasets"][0]["data"][-1] == pytest.approx(otif["value"], abs=0.051)
-    assert d["target"] == 95.0 and d["ask_hint"] and d["source"]
+    assert d["target"] == 95.0 and "ask_hint" not in d and d["source"]
     urgent = next(c for c in b["cards"] if c["key"] == "urgent")
     u = client.get("/api/briefing/tehtaan_johtaja/card/urgent").json()
     assert len(u["rows"]) == urgent["value"] and u["chart"]["labels"]
@@ -363,10 +369,15 @@ def test_followup_uses_conversation(client):
     assert [t["q"] for t in conv["turns"]] == ["Näytä toimitusvarmuus kuukausittain", "Entä Plant B?"]
 
 
-def test_chat_mode_does_not_count_as_request(client):
+def test_conversation_route_does_not_count_as_request(client, monkeypatch):
+    from backend import routing
+    from backend.router import Classification
+
+    monkeypatch.setattr(routing, "classify", lambda *args: (
+        Classification(intent="conversation", action=None, needs_clarification=False, ambiguity_reason=None), 0.0))
     before = client.get("/api/meter").json()["requests"]
     a = ask(client, "Mitä osaat?")
-    assert a["decision"] == "CHAT" and "hallituilla" in a["answer"]
+    assert a["decision"] == "CHAT" and "Voin avata" in a["answer"]
     assert client.get("/api/meter").json()["requests"] == before
 
 
@@ -478,17 +489,17 @@ def test_spec_language_and_cache_separation(client, monkeypatch):
     def fake(prompt, language="en"):
         calls.append(prompt)
         language = "English" if "Selected response language: English" in prompt else "Finnish"
-        return ChartSpec(metric="UNSUPPORTED", mode="chat", reply=language)
+        return interpretation(ChartSpec(metric="Net Sales", title=language))
 
     monkeypatch.setattr(specmod, "_call_gemini", fake)
     monkeypatch.setattr(specmod, "_kpi_hints", lambda q: [])
-    body = {"role": "tehtaan_johtaja", "question": "Vastaa eri kielellä / answer in another language"}
-    assert client.post("/api/ask", json=body).json()["answer"] == "English"
+    question = "Language-specific analytics interpretation"
+    assert specmod.generate_spec(question, "tehtaan_johtaja")[0].title == "English"
     for language, answer in [("en", "English"), ("fi", "Finnish"), ("en", "English"), ("fi", "Finnish")]:
-        response = client.post("/api/ask", json={**body, "language": language}).json()
-        assert response["answer"] == answer and response["language"] == language
+        spec, _ = specmod.generate_spec(question, "tehtaan_johtaja", language=language)
+        assert spec.title == answer
     assert len(calls) == 2
-    assert "reply` in English" in calls[0] and "title: short title in Finnish" in calls[1]
+    assert "Selected response language: English" in calls[0] and "title: short title in Finnish" in calls[1]
 
 
 def test_answer_language_and_cache_separation(client, monkeypatch):
@@ -529,8 +540,8 @@ def test_localized_fallbacks_and_empty_results(client, monkeypatch):
 
     monkeypatch.setattr(engine, "write_answer", lambda *args: None)
     monkeypatch.setattr(specmod, "_kpi_hints", lambda q: [])
-    monkeypatch.setattr(specmod, "_call_gemini", lambda p, language="en": ChartSpec(
-        metric="Replenishment Reorder-By Date", title="Orders", dimensions=["product"]))
+    monkeypatch.setattr(specmod, "_call_gemini", lambda p, language="en": interpretation(ChartSpec(
+        metric="Replenishment Reorder-By Date", title="Orders", dimensions=["product"])))
     en = ask(client, "localization fallback", language="en")
     fi = ask(client, "localization fallback", language="fi")
     assert "order by" in en["answer"] and "tilaa viimeistään" in fi["answer"]
@@ -544,9 +555,9 @@ def test_localized_fallbacks_and_empty_results(client, monkeypatch):
 def test_reuse_across_languages_keeps_identity(client, monkeypatch):
     monkeypatch.setattr(engine, "write_answer", lambda *args: None)
     monkeypatch.setattr(specmod, "_kpi_hints", lambda q: [])
-    monkeypatch.setattr(specmod, "_call_gemini", lambda p, language="en": ChartSpec(
+    monkeypatch.setattr(specmod, "_call_gemini", lambda p, language="en": interpretation(ChartSpec(
         metric="Units Shipped", dimensions=["market", "product"],
-        title="Shipped units" if "Selected response language: English" in p else "Toimitetut kappaleet"))
+        title="Shipped units" if "Selected response language: English" in p else "Toimitetut kappaleet")))
     en = ask(client, "bilingual chart identity", language="en")
     fi = ask(client, "bilingual chart identity", language="fi", session_id=en["session_id"])
     assert en["fingerprint"] == fi["fingerprint"] and fi["decision"] == "REUSE"

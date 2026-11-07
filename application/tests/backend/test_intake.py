@@ -458,8 +458,8 @@ def test_snapshot_history_requires_accepting_snapshot_alternative(sandbox, monke
 def test_model_replacement_flag_cannot_erase_multi_metric_brief(sandbox, monkeypatch):
     client, _ = sandbox
     original = interpreted(requested_metrics=["Net Sales", "Forecast Variance"], usage="one_off", missing_information=["metric"])
-    replacement = interpreted(usage="one_off")
-    replacement.replacement_request = True
+    replacement = interpreted(usage="one_off").model_dump()
+    replacement["replacement_request"] = True  # Unknown model metadata cannot authorize replacement.
     responses = iter([original, replacement])
     monkeypatch.setattr(specmod, "_call_gemini", lambda *args: next(responses))
     a = post(client, "net sales and forecast variance").json()

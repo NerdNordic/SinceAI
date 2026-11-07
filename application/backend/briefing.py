@@ -15,10 +15,6 @@ URGENT = ("STOCKOUT_RISK", "ORDER_NOW")
 STATUS_FI = {"STOCKOUT_RISK": "loppumisriski", "ORDER_NOW": "tilaa nyt", "URGENT": "kiireellinen",
              "PLAN": "suunnittele", "OK": "kunnossa", "NO_SHIPMENTS": "ei toimituksia"}
 
-ASK_HINTS = {
-    "otif": "Näytä toimitusvarmuus kuukausittain",
-    "urgent": "Mitkä tilaukset pitää tehdä tällä viikolla?",
-}
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 
 
@@ -34,8 +30,6 @@ def _with_targets(cards):
         if t and c.get("value") is not None:
             c["target"] = t["target"]
             c["lower_is_better"] = t["lower_is_better"]
-        if c["key"] in ASK_HINTS:
-            c["ask_hint"] = ASK_HINTS[c["key"]]
     return cards
 
 

@@ -58,7 +58,6 @@ try {
   .card.warning { background: var(--warn-soft); border-color: transparent; } .card.warning .v { color: var(--warn); }
   .delta { font-size: 12.5px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
   .delta.good { color: var(--accent); } .delta.bad { color: var(--crit); }
-  .kysy { padding: 4px 10px; font-size: 12.5px; margin-top: 8px; }
   .devs { margin-top: 12px; display: grid; gap: 6px; }
   .dev { border-radius: 8px; padding: 8px 12px; font-size: 13px; }
   .dev.high { background: var(--crit-soft); color: var(--crit); }
@@ -158,14 +157,13 @@ try {
   </header>
 
   <main>
-    <section class="panel" v-if="brief">
+    <section class="panel" v-if="brief" ref="briefing">
       <h2>{{ t('Aamubriefing') }} · {{ brief.role }}<template v-if="brief.plant"> · {{ brief.plant }}</template></h2>
       <div class="cards">
         <div v-for="c in brief.cards" class="card" :class="c.tone" @click="openCard(c)">
           <div class="v">{{ fmt(c.value) }}<small v-if="c.unit" class="muted"> {{ c.unit }}</small></div>
           <div class="delta" v-if="c.target != null" :class="deltaTone(c)">{{ deltaText(c) }}</div>
           <div class="l">{{ c.label }}</div>
-          <button v-if="c.ask_hint" class="btn ghost kysy" @click.stop="askFrom(c.ask_hint)">Kysy tästä</button>
         </div>
       </div>
       <ul class="items" v-if="brief.items.length">
@@ -270,7 +268,7 @@ try {
           <h2>{{ t('Keskustelu') }} · {{ roleLabel }}</h2>
           <button class="btn ghost" v-if="answers.length" :disabled="busy" @click="newChat()">{{ t('Uusi keskustelu') }}</button>
         </div>
-        <div class="empty muted" v-if="!answers.length">{{ t('Kysy luvuista omin sanoin. Voit jatkaa kysymällä esimerkiksi “entä Suomessa?” tai “miksi?”.') }}</div>
+        <div class="empty muted" v-if="!answers.length">{{ t('Kirjoita kysymyksesi omin sanoin.') }}</div>
       <div v-for="(a, idx) in answers" :key="a.key" class="turn">
         <div class="bubble user">{{ a.question }}</div>
         <div class="bubble bot" v-if="a.decision === 'CHAT'">{{ a.answer }}</div>
@@ -281,7 +279,6 @@ try {
         <p v-else class="said">{{ a.answer }}</p>
         <template v-if="a.intake">
           <ul v-if="a.intake.limitations.length"><li v-for="limit in a.intake.limitations.filter(limit => !a.answer.includes(limit))">{{ limit }}</li></ul>
-          <p class="muted" v-if="a.intake.alternatives.length">{{ t('Tuetut vaihtoehdot') }}: {{ a.intake.alternatives.map(option => t(option.label)).join(' · ') }}</p>
           <p class="muted" v-if="a.intake.reuse.message">{{ a.intake.reuse.message }}</p>
           <ul v-if="a.intake.reuse.candidates.length"><li v-for="candidate in a.intake.reuse.candidates">{{ candidate.id }} · {{ candidate.title }} · {{ t(candidate.suitability) }}</li></ul>
         </template>
@@ -314,14 +311,13 @@ try {
         <div class="row" v-if="(a.related_reports || []).length">{{ t('Bayerin olemassa olevat raportit samasta KPI:stä') }}:
           <span v-for="r in a.related_reports" class="pill">{{ r.asset_id }} {{ r.name }} · {{ t(r.endorsement) }}</span></div>
         </div>
-        <div class="chips" v-if="(a.suggestions || []).length"><button v-for="s in a.suggestions" :key="s.question" @click="question = s.question; ask()" :disabled="busy || languageLoading">{{ s.label }}</button></div>
       </div>
-        <div class="spinner" v-if="busy">{{ t('Gemini tulkitsee kysymystä ja moottori laskee…') }}</div>
+        <div class="spinner" v-if="busy">{{ t('Käsitellään pyyntöä…') }}</div>
         <form class="ask" @submit.prevent="ask()">
-          <input v-model="question" :placeholder="t('Kysy luvuista, pyydä kaaviota tai jatka edellisestä…')" :disabled="busy || languageLoading" ref="input">
+          <input v-model="question" @input="clearSuggestions()" :placeholder="t('Kysy luvuista, pyydä kaaviota tai jatka edellisestä…')" :disabled="busy || languageLoading" ref="input">
           <button :disabled="busy || languageLoading || !question.trim()">{{ t('Lähetä') }}</button>
         </form>
-        <div class="chips"><button v-for="e in examples[role]" @click="question = e; ask()" :disabled="busy || languageLoading">{{ e }}</button></div>
+        <div class="chips" v-if="pendingRequest && clarificationSuggestions.length"><button v-for="s in clarificationSuggestions" :key="s.question_id + s.answer" @click="chooseSuggestion(s)" :disabled="busy || languageLoading">{{ s.label }}</button></div>
       </div>
       </template>
     </section>
@@ -347,7 +343,6 @@ try {
         </table></div>
       </details>
       <div class="row">
-        <button v-if="modal.ask_hint" class="btn ghost" @click="askFrom(modal.ask_hint); closeCard()">Kysy tästä chatissa</button>
         <span class="muted" v-if="modal.source">{{ modal.source }}</span>
       </div>
     </div>
@@ -402,12 +397,11 @@ createApp({
     language: document.documentElement.lang === 'fi' ? 'fi' : 'en', languageLoading: false,
     theme: document.documentElement.dataset.theme === 'light' ? 'light' : 'dark',
     roles: [], role: 'tehtaan_johtaja', brief: null, meter: null, question: '', busy: false, answers: [],
-    sessionId: null, pendingRequest: false, registry: [], proposals: [], auditLog: [],
+    sessionId: null, pendingRequest: false, clarificationSuggestions: [], registry: [], proposals: [], auditLog: [],
     modal: null, modalBusy: false, cardSeq: 0,
     view: 'dash', dash: null, dashBusy: false, pinTarget: {}, pinnedBy: {},
   }),
   computed: {
-    examples() { return EXAMPLES[this.language]; },
     locale() { return this.language === 'fi' ? 'fi-FI' : 'en-GB'; },
     roleLabel() { const r = this.roles.find(x => x.id === this.role); return r ? r.label : ''; },
     factoryRoles() { return this.roles.filter(r => r.id !== 'data_steward'); },
@@ -453,6 +447,7 @@ createApp({
     },
     async setLanguage(language) {
       if (this.busy || this.languageLoading || !['en', 'fi'].includes(language)) return;
+      this.clearSuggestions();
       this.language = language;
       this.updateLanguage();
       Object.values(charts).forEach(chart => {
@@ -507,7 +502,7 @@ createApp({
         } catch { alert(this.t('Pyyntö epäonnistui. Yritä uudelleen.')); return false; }
       }
       this.clearCharts();
-      this.answers = []; this.sessionId = null; this.pendingRequest = false;
+      this.answers = []; this.sessionId = null; this.pendingRequest = false; this.clearSuggestions();
       return true;
     },
     clearCharts() {
@@ -529,8 +524,15 @@ createApp({
         alert(this.t('Pyyntö epäonnistui. Yritä uudelleen.'));
       } finally { this.dashBusy = false; }
     },
+    clearSuggestions() { this.clarificationSuggestions = []; },
+    async chooseSuggestion(suggestion) {
+      if (this.busy || this.languageLoading || !this.pendingRequest || !this.clarificationSuggestions.includes(suggestion)) return;
+      this.question = suggestion.answer;
+      await this.ask();
+    },
     async ask() {
       if (this.busy || this.languageLoading || !this.question.trim()) return;
+      this.clearSuggestions();
       this.busy = true;
       try {
         const res = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -539,9 +541,13 @@ createApp({
         const a = await res.json();
         a.key = Date.now(); this.sessionId = a.session_id;
         this.pendingRequest = Boolean(a.intake?.pending);
+        this.clarificationSuggestions = this.pendingRequest ? (a.suggestions || []).filter(s =>
+          (a.intake?.questions || []).some(q => q.id === s.question_id) && typeof s.label === 'string' && typeof s.answer === 'string') : [];
         this.answers.push(a); this.question = '';
+        if (a.action?.name === 'open_briefing' && a.action.briefing) this.brief = a.action.briefing;
         await nextTick(); this.draw(a);
-        this.$refs.input && this.$refs.input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const target = a.action?.name === 'open_briefing' ? this.$refs.briefing : this.$refs.input;
+        target && target.scrollIntoView({ behavior: 'smooth', block: 'center' });
         this.meter = await (await fetch('/api/meter')).json();
       } catch (e) { alert(this.t('Virhe') + ': ' + (e.message === 'Failed to fetch' ? this.t('Pyyntö epäonnistui. Yritä uudelleen.') : e.message)); }
       this.busy = false;
@@ -628,16 +634,6 @@ createApp({
     deltaTone(c) {
       const good = c.lower_is_better ? c.value <= c.target : c.value >= c.target;
       return good ? 'good' : 'bad';
-    },
-    askFrom(hint) {
-      this.question = hint;
-      if (this.role !== 'data_steward' && this.view !== 'chat') this.setView('chat');
-      this.$nextTick(() => {
-        if (this.$refs.input) {
-          this.$refs.input.focus();
-          this.$refs.input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      });
     },
     date(d) { return d ? new Date(d).toLocaleDateString(this.locale) : '–'; },
     dateTime(d) { return d ? new Date(d).toLocaleString(this.locale) : '–'; },

@@ -68,8 +68,9 @@ abandons the old pending request first.
 
 Explicit prefixes such as `New request:`, `Instead`, `Start over`, `Uusi pyyntö`
 or `Aloita alusta` replace the pending request without inheriting its scope. The
-model's replacement flag alone cannot discard a pending brief. Existing chat-only
-responses and completed-request follow-ups continue to use the existing interface.
+model cannot discard a pending brief by adding replacement metadata. Conversation
+and explanation requests are handled by the LLM router before analytics interpretation;
+completed-request follow-ups continue to use the existing interface.
 
 ## Commands
 

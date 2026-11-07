@@ -219,7 +219,6 @@ Run from this folder:
 $env:N8N_WEBHOOK_URL = ''
 & '..\.venv\Scripts\python.exe' -m pytest -q
 node tests/frontend/preferences.test.cjs
-node tests/frontend/chart_colors.test.cjs
 & '..\.venv\Scripts\python.exe' -m pip check
 ```
 
@@ -239,6 +238,8 @@ Neither is a full visual browser test.
 | `backend/main.py` | HTTP routes, input validation and static-file serving. |
 | `backend/config.py`, `backend/db.py` | Environment settings and shared MongoDB access. |
 | `backend/spec.py` | Structured Gemini specification, response text and language-aware caches. |
+| `backend/router.py`, `backend/routing.py` | Strict semantic classification followed by allowlisted Python dispatch; see [routing and measured latency](../docs/routing.md). |
+| `backend/suggestions.py` | Optional contextual clarification answers with validated, scope-preserving effects; see [clarification suggestions](../docs/clarification-suggestions.md). |
 | `backend/engine.py` | Fingerprints, reuse decisions, persistence and approvals. |
 | `backend/metrics.py`, `backend/replenishment/` | Governed calculations and replenishment exports. |
 | `backend/briefing.py` | Role summaries and exception lists. |

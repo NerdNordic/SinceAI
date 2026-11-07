@@ -7,12 +7,9 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 import urllib.request
 import uuid
 from datetime import datetime, timedelta, timezone
-from functools import lru_cache
-from pathlib import Path
 from typing import Any
 
 from . import config, metrics
@@ -28,35 +25,6 @@ ACTIVE = ["active", "certified"]
 
 def now() -> datetime:
     return datetime.now(timezone.utc)
-
-
-DEFAULT_SUGGESTIONS = ["Net Sales", "On-Time In-Full", "Units Shipped", "Inventory Coverage"]
-
-
-@lru_cache(maxsize=1)
-def _metric_aliases() -> dict[str, list[str]]:
-    """Curated business vocabulary (kpi_aliases.json), supported metrics only."""
-    try:
-        raw = json.loads((Path(__file__).resolve().parent.parent / "config" / "kpi_aliases.json").read_text())
-    except Exception:  # noqa: BLE001 - suggestions are optional
-        raw = {}
-    return {k: [a.lower() for a in v] for k, v in raw.items()
-            if not k.startswith("_") and k in metrics.METRICS}
-
-
-def _suggestions(question: str, language: Language) -> list[dict[str, str]]:
-    """Metric chips for a clarify/abilities answer: the metrics the user mentioned, else the core catalog."""
-    q = question.lower()
-    hits = []
-    for name, aliases in _metric_aliases().items():
-        best = max((a for a in [*aliases, name.lower()] if re.search(rf"\b{re.escape(a)}\b", q)), key=len, default="")
-        if best:
-            hits.append((best, name))
-    hits.sort(key=lambda h: (-len(h[0]), h[1]))
-    kept = [name for alias, name in hits
-            if not any(len(other) > len(alias) and alias in other for other, _ in hits)]
-    names = kept[:5] or DEFAULT_SUGGESTIONS
-    return [{"label": metric_label(n, language), "question": n} for n in names]
 
 
 def fingerprint(spec: ChartSpec) -> str:
@@ -123,26 +91,35 @@ def _register(spec: ChartSpec, fp: str, role: str, question: str, language: Lang
 def _save_turn(session_id: str, role: str, turn: dict[str, Any], pending_request=None) -> None:
     turn["ts"] = now()
     update = {"$push": {"turns": turn}, "$set": {"role": role, "updated_at": now()}, "$setOnInsert": {"created_at": now()}}
+    update["$unset"] = {"routing_pending": ""}
     if pending_request is None:
-        update["$unset"] = {"pending_request": ""}
+        update["$unset"]["pending_request"] = ""
     else:
         update["$set"]["pending_request"] = pending_request.model_dump()
     get_db().conversations.update_one({"_id": session_id}, update, upsert=True)
 
 
 def _clarify(base, brief, spec, questions, limitations, alternatives, evidence, outcome="ASK", unresolved_questions=None):
+    from . import suggestions
     status_messages = {"verified": "reuse_verified", "needs_verification": "reuse_check", "none": "reuse_none", "unavailable": "reuse_unavailable"}
     if evidence["status"] in status_messages:
         evidence["message"] = intake.message(status_messages[evidence["status"]], base["language"])
     pending = intake.PendingRequest(original_request=brief.original_request, brief=brief,
                                     unresolved_questions=unresolved_questions or questions, latest_questions=questions,
-                                    alternatives=alternatives, draft_spec=spec.model_dump())
+                                    alternatives=alternatives, draft_spec=spec.model_dump(), outcome=outcome)
+    generated = suggestions.generate([q.model_dump() for q in questions], brief.original_request,
+        brief.model_dump(), pending.model_dump(), base["language"], [a.model_dump() for a in alternatives])
+    if generated:
+        questions = [generated.question]
+        pending.latest_questions = questions
+        pending.suggestions = generated.suggestions
+    pending.suggestion_language = base["language"]
     answer = "\n\n".join(q.text for q in questions)
     _save_turn(base["session_id"], base["role"], {"q": base["question"], "decision": "CLARIFY",
                "answer": answer, "brief": brief.model_dump(), "spec": spec.model_dump()}, pending)
     get_db().request_log.insert_one({"ts": now(), "role": base["role"], "question": base["question"], "decision": "CLARIFY"})
     return {**base, "decision": "CLARIFY", "rule": "RULE-002", "reason": answer, "answer": answer,
-            "brief": brief.model_dump(), "suggestions": _suggestions(brief.original_request, base["language"]),
+            "brief": brief.model_dump(), "suggestions": [s.public() for s in pending.suggestions],
             "intake": {"outcome": outcome, "mode": brief.mode, "questions": [q.model_dump() for q in questions],
                        "limitations": [v for v in limitations if not v.endswith("?")],
                        "alternatives": [a.model_dump() for a in alternatives], "reuse": evidence, "pending": True}}
@@ -187,7 +164,9 @@ def fallback_answer(spec: ChartSpec, result: dict[str, Any], language: Language 
     return f"{spec.title}: {label} {top['arvo']:g} {unit}." if top.get("arvo") is not None else spec.title
 
 
-def ask(question: str, role: str, session_id: str | None = None, language: Language = "en", abandon_pending: bool = False) -> dict[str, Any]:
+def ask(question: str, role: str, session_id: str | None = None, language: Language = "en",
+        abandon_pending: bool = False, request_context: list[str] | None = None,
+        clarification_answer=None) -> dict[str, Any]:
     db = get_db()
     session_id = session_id or uuid.uuid4().hex[:12]
     conv = db.conversations.find_one({"_id": session_id}) or {}
@@ -201,6 +180,10 @@ def ask(question: str, role: str, session_id: str | None = None, language: Langu
     replacement = intake.is_replacement(input_question) or (grill and bool(input_question))
     if replacement:
         pending, history = None, []
+    elif request_context:
+        # Preserve unresolved semantics for interpretation/readiness, but never
+        # echo synthetic context as part of the user's current message.
+        input_question = "\n\n".join([*request_context, input_question])
     mode = "grill" if grill else pending.brief.mode if pending else "auto"
     if grill and not input_question:
         brief = pending.brief if pending else intake.RequestBrief(mode="grill")
@@ -211,23 +194,35 @@ def ask(question: str, role: str, session_id: str | None = None, language: Langu
         return _clarify(base, brief, spec, [q], [], pending.alternatives if pending else [],
                         {"status": "not_searched", "candidates": []},
                         unresolved_questions=pending.unresolved_questions if pending else None)
-    spec, meta = generate_spec(input_question, role, history, language,
-                               pending.model_dump() if pending else None, mode)
-    interpretation = meta["intake"]
+    from . import suggestions
+    approved = suggestions.resolve(pending, input_question, role) if not replacement and not request_context else None
+    if approved:
+        from .spec import Interpretation
+        spec, brief = approved
+        definition_resolved = (brief.selected_metric and pending.brief.unresolved_terms
+                               and not brief.unresolved_terms and not brief.unsupported
+                               and all(name in metrics.METRICS or name in pending.brief.unresolved_terms
+                                       for name in pending.brief.requested_metrics))
+        interpretation = Interpretation(brief=brief, spec=spec,
+            outcome="UNSUPPORTED" if pending.outcome == "UNSUPPORTED" and not definition_resolved else "READY")
+        meta = {"cached": False, "hints": []}
+    else:
+        spec, meta = generate_spec(input_question, role, history, language,
+                                   pending.model_dump() if pending else None, mode)
+        interpretation = meta["intake"]
     # Replacing an unresolved request needs an explicit command/phrase, not merely
     # an advisory model flag that might mistake a short clarification for a new task.
-    brief = intake.prepare_brief(interpretation.brief, spec, input_question, pending, mode, replacement)
+    if not approved:
+        brief = intake.prepare_brief(interpretation.brief, spec, input_question, pending, mode, replacement)
+    if clarification_answer and not replacement:
+        previous_brief = brief
+        spec, brief = suggestions.apply(brief, spec, *clarification_answer, role, baseline=pending)
+        definition_resolved = (brief.selected_metric and previous_brief.unresolved_terms
+                               and not brief.unresolved_terms and not brief.unsupported)
+        outcome = "UNSUPPORTED" if interpretation.outcome == "UNSUPPORTED" and not definition_resolved else "READY"
+        interpretation = interpretation.model_copy(update={"brief": brief, "spec": spec, "outcome": outcome})
     base = {"question": question, "role": role, "session_id": session_id, "spec": spec.model_dump(),
             "llm_cached": meta["cached"], "kpi_hints": meta.get("hints", []), "language": language}
-
-    if (spec.mode == "chat" and not pending and mode == "auto" and not brief.new_asset
-            and not brief.requested_metrics and not brief.unresolved_terms and not brief.unsupported):
-        answer = spec.reply or text(
-            "Voin näyttää tehtaan luvut ja kaaviot hallituilla määritelmillä: {metrics}. Kysy esimerkiksi, mitä pitää tilata tällä viikolla.",
-            language, metrics=", ".join(metric_label(k, language) for k in metrics.METRICS))
-        _save_turn(session_id, role, {"q": question, "decision": "CHAT", "answer": answer})
-        return {**base, "decision": "CHAT", "answer": answer,
-                "suggestions": _suggestions(question, language) if spec.metric == "UNSUPPORTED" else []}
 
     if not brief.questions and spec.clarification_question:
         brief.questions = [intake.IntakeQuestion(id="definition", field="definition", text=spec.clarification_question)]
@@ -237,7 +232,6 @@ def ask(question: str, role: str, session_id: str | None = None, language: Langu
         return _clarify(base, brief, spec, questions, limitations, alternatives, evidence,
                         interpretation.outcome if interpretation.outcome == "UNSUPPORTED" else "ASK", unresolved)
     spec.metric = metric
-    spec.mode = "data"
     spec.filters.product_ids, spec.filters.market_ids = brief.product_ids, brief.market_ids
     spec.filters.plants = brief.plants
     spec.actuals_only = brief.actual_forecast == "actual_only" or spec.actuals_only
@@ -293,7 +287,7 @@ def ask(question: str, role: str, session_id: str | None = None, language: Langu
                      f"{result['receipt'].get('definition', '')} Source {src.get('sheet') or src.get('collection')}, "
                      f"{src.get('rows_used')} rows. Warnings: {'; '.join(warnings) or 'none'}")
     _save_turn(session_id, role, {"q": question, "decision": decision, "spec": spec.model_dump(), "title": title,
-                                  "answer": answer, "receipt_brief": receipt_brief})
+                                  "answer": answer, "receipt_brief": receipt_brief, "explanation": reason})
     return {
         **base, "decision": decision, "rule": rule, "reason": reason, "answer": answer, "fingerprint": fp, "title": title,
         "chart_status": chart_status, "result_id": result_id, "unit": result["unit"], "chart": result["chart"],

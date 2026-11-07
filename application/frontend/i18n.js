@@ -15,8 +15,7 @@ const ENGLISH = {
   'Toteuma (actual-like)': 'Actual (actual-like)', 'Ennuste (forecast-like)': 'Forecast (forecast-like)',
   'Osittain ennusteperäistä': 'Partially forecast-based',
   'Sekoittunut väri = osittain ennusteperäistä': 'Blended color = partially forecast-based',
-  'Kysy luvuista omin sanoin. Voit jatkaa kysymällä esimerkiksi “entä Suomessa?” tai “miksi?”.':
-    'Ask about the figures in your own words. Follow up with “what about Finland?” or “why?”.',
+  'Kirjoita kysymyksesi omin sanoin.': 'Ask your question in your own words.',
   'Taulukko': 'Table', 'riviä': 'rows', 'Näytä laskenta': 'Show calculation', 'Määritelmä': 'Definition',
   'Lähde': 'Source', 'Suodattimet': 'Filters', 'Esimerkkilaskenta (1. rivi)': 'Example calculation (first row)',
   'Huomiot': 'Notes', 'Sormenjälki': 'Fingerprint', 'Lataa raakadata (CSV)': 'Download raw data (CSV)',
@@ -25,7 +24,7 @@ const ENGLISH = {
   'päivää tilauspäivään (miinus = myöhässä)': 'days until order date (negative = overdue)',
   'Päiviä suositeltuun tilauspäivään': 'Days until recommended order date',
   'Samankaltaisia kaavioita': 'Similar charts', 'Bayerin olemassa olevat raportit samasta KPI:stä': 'Existing Bayer reports for the same KPI',
-  'Gemini tulkitsee kysymystä ja moottori laskee…': 'Gemini is interpreting the question and the engine is calculating…',
+  'Käsitellään pyyntöä…': 'Processing your request…',
   'Kysy luvuista, pyydä kaaviota tai jatka edellisestä…': 'Ask about figures, request a chart, or follow up…',
   'Lähetä': 'Send', 'Virhe': 'Error', 'Pyyntö epäonnistui. Yritä uudelleen.': 'The request failed. Please try again.',
   'AI-palvelu ei ole juuri nyt käytettävissä. Yritä hetken kuluttua uudelleen.': 'The AI service is temporarily unavailable. Please try again shortly.',
@@ -83,18 +82,4 @@ const FINNISH = {
   'ZERO_SHIPMENT_MONTH': 'Kuukausi ilman toimituksia', 'VOLATILE_SHIPMENTS': 'Vaihteleva toimitusmäärä',
   'INVENTORY_SOURCE_CONFLICT': 'Ristiriitaiset varastolähteet', 'LATEST_MONTH_FORECAST_LIKE': 'Viimeisin kuukausi on ennustetyyppinen',
   'ZERO_INVENTORY': 'Tyhjä varasto', 'air': 'Lentokuljetus', 'road': 'Maantiekuljetus', 'sea': 'Merikuljetus',
-};
-const EXAMPLES = {
-  en: {
-    tehtaan_johtaja: ['Which products are at risk of running out?', 'Show monthly delivery reliability', 'What about by market?', 'Where does this figure come from?'],
-    vuoropaallikko: ['Which orders need to be placed this week?', 'How have deliveries performed monthly?', 'What about Finland?'],
-    tuotantotyontekija: ['Which products should be prioritized?', 'How many units were shipped each month?', 'What can you do?'],
-    data_steward: [],
-  },
-  fi: {
-    tehtaan_johtaja: ['Mitkä tuotteet ovat loppumisvaarassa?', 'Näytä toimitusvarmuus kuukausittain', 'Entä markkinoittain?', 'Mistä tämä luku tulee?'],
-    vuoropaallikko: ['Mitkä tilaukset pitää tehdä tällä viikolla?', 'Miten toimitukset ovat onnistuneet kuukausittain?', 'Entä Suomessa?'],
-    tuotantotyontekija: ['Mitä tuotteita priorisoidaan?', 'Paljonko tuotteita lähetettiin kuukausittain?', 'Mitä osaat?'],
-    data_steward: [],
-  },
 };
