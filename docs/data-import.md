@@ -90,6 +90,35 @@ deletes it afterwards. Running the script without `--only` includes that check.
 This diagnostic is deliberately outside the offline pytest suite. Check each
 script's `--help` before changing database or import options.
 
+## Gemini spec-generation eval
+
+A curated question set (`application/tools/eval_dataset.json`, 37 English and
+Finnish phrasings, including follow-up questions) checks the
+question-to-chart-spec step against real Gemini. The driver runs the production
+path (KPI hints -> prompt -> Gemini -> sanitize) without the `llm_cache`, so a
+second pass measures true reproducibility:
+
+```powershell
+& '..\.venv\Scripts\python.exe' -m tools.eval_spec                 # all cases, 2 passes
+& '..\.venv\Scripts\python.exe' -m tools.eval_spec --only otif     # cases whose id contains 'otif'
+& '..\.venv\Scripts\python.exe' -m tools.eval_spec --validate      # dataset check, no Gemini calls
+& '..\.venv\Scripts\python.exe' -m tools.eval_spec --no-hints      # prompt without vector hints
+```
+
+- Accuracy is reported per pass over the core fields (metric, dimensions,
+  filters) and separately over extras (`chart_type`, `intent`, `actuals_only`,
+  `mode`, `understood`). Expected values are post-sanitize, so plant-role
+  defaults (`plants=["Plant-A"]`) are part of the expectations.
+- Reproducibility compares the first and last pass on the semantic spec
+  fields; title differences are informational only.
+- A run makes about `2 x N` generate-content calls and `N` embedding calls
+  (hints) and needs the same environment as the app (`MONGODB_URI`,
+  `GEMINI_API_KEY`). It reads MongoDB but never writes to it.
+- `--report PATH` (for example `..\ignore\eval_report.json`, Git-ignored)
+  saves a machine-readable result for comparing prompt or model changes.
+- Exit codes: `0` run completed (mismatches are measurements, not failures),
+  `1` a Gemini call failed after retries, `2` configuration or dataset error.
+
 ## Offline replenishment export
 
 This CLI loads the workbook directly and uses the same deterministic replenishment
