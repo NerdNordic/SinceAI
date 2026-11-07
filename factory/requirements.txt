@@ -1,2 +1,0 @@
-# factory — n8n webhook client + offline stub (backend transport contract).
-# Python standard library only (urllib, json, os). No external dependencies.

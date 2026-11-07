@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Build Less assistant</title>
+<script>
+// Apply the saved theme before the page paints; storage may be blocked.
+try {
+  document.documentElement.lang = localStorage.getItem('sinceai-language') === 'fi' ? 'fi' : 'en';
+  if (localStorage.getItem('sinceai-theme') === 'light') document.documentElement.dataset.theme = 'light';
+} catch {}
+</script>
+<script src="/static/i18n.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue@3.4.38/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js"></script>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #111817; --panel: #1a2422; --ink: #e5eeeb; --muted: #a5b8b1; --line: #3b5048;
+    --accent: #73d9b4; --accent-soft: #203c32; --warn: #f0c078; --warn-soft: #3d3020;
+    --crit: #ffaaa2; --crit-soft: #422824; --info: #9cc5ff; --info-soft: #23344d;
+    --on-accent: #10271e;
+    --chart-palette: #73d9b4, #9cc5ff, #f0c078, #c6a5ed, #ffaaa2, #b9d982, #a5b8b1, #f49bc4;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f6f7f4; --panel: #ffffff; --ink: #1d2320; --muted: #5f6b65; --line: #dfe3dd;
+    --accent: #0f6e56; --accent-soft: #e3f1ec; --warn: #895000; --warn-soft: #fbf0df;
+    --crit: #b3261e; --crit-soft: #fbe6e4; --info: #2d5ba8; --info-soft: #e6eefa;
+    --on-accent: #ffffff;
+    --chart-palette: #0f6e56, #2d5ba8, #895000, #7a3e9d, #b3261e, #3f7f2a, #5f6b65, #c2185b;
+  }
+  * { box-sizing: border-box; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 "Inter", system-ui, -apple-system, Segoe UI, sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; padding: 14px 24px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  h1 { font-size: 17px; margin: 0; letter-spacing: -0.01em; }
+  h1 span { color: var(--accent); }
+  .roles { display: flex; gap: 6px; flex-wrap: wrap; }
+  .roles button { border: 1px solid var(--line); background: var(--panel); padding: 7px 12px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 14px; color: var(--ink); }
+  .roles button.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .meter { margin-left: auto; display: flex; align-items: baseline; gap: 8px; padding: 6px 14px; border-radius: 10px; background: var(--accent-soft); }
+  .meter b { font-size: 20px; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .meter small { color: var(--muted); }
+  main { display: grid; grid-template-columns: 340px 1fr; gap: 20px; padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; padding: 16px; } .meter { margin-left: 0; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .card { border: 1px solid var(--line); border-radius: 10px; padding: 10px; cursor: pointer; transition: border-color .12s; }
+  .card:hover { border-color: var(--accent); }
+  .card .v { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .card .l { font-size: 12.5px; color: var(--muted); }
+  .card.critical { background: var(--crit-soft); border-color: transparent; } .card.critical .v { color: var(--crit); }
+  .card.warning { background: var(--warn-soft); border-color: transparent; } .card.warning .v { color: var(--warn); }
+  .delta { font-size: 12.5px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .delta.good { color: var(--accent); } .delta.bad { color: var(--crit); }
+  .kysy { padding: 4px 10px; font-size: 12.5px; margin-top: 8px; }
+  .devs { margin-top: 12px; display: grid; gap: 6px; }
+  .dev { border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+  .dev.high { background: var(--crit-soft); color: var(--crit); }
+  .dev.medium { background: var(--warn-soft); color: var(--warn); }
+  .dev.low { background: var(--info-soft); color: var(--info); }
+  .devs.ok { color: var(--accent); font-size: 13px; }
+  .overlay { position: fixed; inset: 0; background: rgba(20, 24, 22, .45); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 20; }
+  .modal { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; width: 100%; max-width: 660px; max-height: 85vh; overflow: auto; position: relative; }
+  .modal h3 { margin: 0 0 2px; font-size: 16px; }
+  .close { position: absolute; top: 10px; right: 12px; border: 0; background: transparent; color: var(--muted); font-size: 17px; cursor: pointer; padding: 4px; }
+  .close:hover { color: var(--ink); }
+  .modalval { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; margin: 6px 0 2px; }
+  .modalval small { font-size: 15px; color: var(--muted); font-weight: 400; }
+  .modal .delta { font-size: 14px; }
+  .desc { font-size: 13.5px; color: var(--muted); margin: 6px 0 10px; line-height: 1.5; }
+  .kpi { font-size: 12.5px; color: var(--muted); margin-bottom: 10px; }
+  .modal .chartbox { height: 220px; margin-bottom: 6px; }
+  .items { list-style: none; margin: 14px 0 0; padding: 0; }
+  .items li { padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
+  .pill { display: inline-block; font-size: 11.5px; padding: 1px 8px; border-radius: 999px; background: var(--line); margin-left: 4px; }
+  .pill.STOCKOUT_RISK, .pill.ORDER_NOW { background: var(--crit-soft); color: var(--crit); }
+  .pill.URGENT { background: var(--warn-soft); color: var(--warn); }
+  .fresh { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  .ask { display: flex; gap: 8px; }
+  .ask input { flex: 1; min-width: 0; padding: 11px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); font: inherit; }
+  .ask input::placeholder { color: var(--muted); opacity: 1; }
+  .ask button, .btn { padding: 10px 16px; border: 0; border-radius: 10px; background: var(--accent); color: var(--on-accent); font: inherit; cursor: pointer; }
+  button:disabled, input:disabled { opacity: .6; cursor: not-allowed; }
+  .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); padding: 6px 10px; font-size: 13px; }
+  .btn.danger { background: transparent; color: var(--crit); border: 1px solid var(--crit); padding: 6px 10px; font-size: 13px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; }
+  .chips button { border: 1px dashed var(--line); background: transparent; border-radius: 999px; padding: 5px 10px; cursor: pointer; font: inherit; font-size: 13px; color: var(--muted); }
+  .answer { margin-top: 16px; }
+  .answer .q { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .decision { display: inline-block; font-weight: 700; font-size: 12px; letter-spacing: .05em; padding: 3px 10px; border-radius: 6px; margin-right: 8px; }
+  .REUSE, .EXTEND, .ANSWER { background: var(--accent-soft); color: var(--accent); }
+  .BUILD { background: var(--info-soft); color: var(--info); }
+  .CLARIFY { background: var(--warn-soft); color: var(--warn); }
+  .reason { margin: 8px 0 12px; }
+  .chartbox { position: relative; height: 300px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; }
+  details { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+  summary { cursor: pointer; color: var(--accent); font-weight: 600; font-size: 14px; }
+  .receipt { font-size: 13px; }
+  .receipt dt { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .receipt dd { margin: 0; }
+  .warn { color: var(--warn); }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 10px; font-size: 13px; }
+  a { color: var(--accent); }
+  .muted { color: var(--muted); }
+  .spinner { color: var(--muted); font-size: 14px; margin: 12px 0; }
+  .chat-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .chat-head h2 { margin: 0; }
+  .empty { padding: 24px 0; font-size: 14px; }
+  .turn { margin: 14px 0; }
+  .bubble { max-width: 80%; padding: 10px 14px; border-radius: 14px; white-space: pre-wrap; }
+  .bubble.user { margin-left: auto; width: fit-content; background: var(--accent); color: var(--on-accent); border-bottom-right-radius: 4px; }
+  .bubble.bot { margin-top: 8px; background: var(--accent-soft); border-bottom-left-radius: 4px; width: fit-content; }
+  .turn .answer { margin-top: 8px; border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .said { font-size: 15.5px; margin: 10px 0 4px; }
+  .reason.muted { font-size: 13px; margin-top: 0; }
+  .ask { margin-top: 12px; }
+  .viewtabs { display: flex; gap: 6px; margin-bottom: 14px; }
+  .viewtabs button { border: 1px solid var(--line); background: var(--panel); padding: 7px 14px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 14px; color: var(--ink); }
+  .viewtabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 1250px) { .tiles { grid-template-columns: 1fr; } }
+  .tile { border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; background: var(--panel); }
+  .tile-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .pill.pin { background: var(--accent-soft); color: var(--accent); cursor: pointer; }
+  .pinsel { border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px; font: inherit; font-size: 13px; background: var(--panel); color: var(--ink); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Build <span>Less</span> {{ t('assistentti') }}</h1>
+    <div class="roles">
+      <button v-for="r in roles" :key="r.id" :class="{on: r.id === role}" @click="setRole(r.id)">{{ r.label }}</button>
+    </div>
+    <div class="meter" v-if="meter">
+      <b>{{ fmt(meter.requests) }}</b><small>{{ t('pyyntöä') }}</small>
+      <b>{{ meter.new_charts }}</b><small>{{ t('uutta kaaviota') }}</small>
+      <b>{{ meter.handled_without_new_chart }}</b><small>{{ t('ilman uutta') }}</small>
+    </div>
+    <button type="button" class="btn ghost" @click="toggleTheme()">{{ theme === 'dark' ? '☀ ' + t('Vaalea tila') : '☾ ' + t('Tumma tila') }}</button>
+    <div class="roles" role="group" :aria-label="t('Kieli')">
+      <button type="button" :class="{on: language === 'en'}" :aria-pressed="language === 'en'" :disabled="busy || languageLoading" @click="setLanguage('en')">English</button>
+      <button type="button" :class="{on: language === 'fi'}" :aria-pressed="language === 'fi'" :disabled="busy || languageLoading" @click="setLanguage('fi')">Suomi</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel" v-if="brief">
+      <h2>{{ t('Aamubriefing') }} · {{ brief.role }}<template v-if="brief.plant"> · {{ brief.plant }}</template></h2>
+      <div class="cards">
+        <div v-for="c in brief.cards" class="card" :class="c.tone" @click="openCard(c)">
+          <div class="v">{{ fmt(c.value) }}<small v-if="c.unit" class="muted"> {{ c.unit }}</small></div>
+          <div class="delta" v-if="c.target != null" :class="deltaTone(c)">{{ deltaText(c) }}</div>
+          <div class="l">{{ c.label }}</div>
+          <button v-if="c.ask_hint" class="btn ghost kysy" @click.stop="askFrom(c.ask_hint)">Kysy tästä</button>
+        </div>
+      </div>
+      <ul class="items" v-if="brief.items.length">
+        <li v-for="i in brief.items">
+          <b>{{ i.product }}</b> → {{ t(i.market) }} <span class="pill" :class="i.status">{{ t(i.status) }}</span><br>
+          <span class="muted">{{ t('tilaa viimeistään') }} {{ date(i.reorder_by) }} · {{ fmt(i.weekly_units) }} {{ t('kpl/vko') }}</span>
+          <span v-if="i.expedite" class="warn"><br>{{ t('nopeutus') }}: {{ i.expedite }}</span>
+        </li>
+      </ul>
+      <div class="devs" v-if="brief.deviations && brief.deviations.length">
+        <div v-for="d in brief.deviations" :key="d.card_key" class="dev" :class="d.severity">{{ d.message }}</div>
+      </div>
+      <div class="devs ok" v-else-if="brief.deviations">Ei poikkeamia — kaikki tavoitteissa.</div>
+      <div class="fresh" v-if="brief.freshness">{{ brief.freshness }}</div>
+    </section>
+
+    <section>
+      <div class="panel" v-if="role === 'data_steward'">
+        <h2>{{ t('Kaaviorekisteri') }}</h2>
+        <table>
+          <tr><th>{{ t('Kaavio') }}</th><th>{{ t('Omistaja') }}</th><th>{{ t('Käyttöjä') }}</th><th>{{ t('Roolit') }}</th><th>{{ t('Tila') }}</th><th></th></tr>
+          <tr v-for="c in registry" :key="c.fingerprint">
+            <td><b>{{ chartTitle(c) }}</b><br><span class="muted">{{ c.fingerprint }}</span></td>
+            <td>{{ t(c.owner) }}</td><td>{{ c.use_count || 0 }}</td><td>{{ (c.used_by_roles || []).length }}</td>
+            <td>{{ t(c.status) }}<span v-if="c.suggestion" class="pill URGENT">{{ t('ehdotus') }}: {{ t(c.suggestion) }}</span></td>
+            <td>
+              <template v-if="c.status === 'certified'">
+                <span v-for="pr in rolesWherePinned(c.fingerprint)" :key="pr" class="pill pin"
+                      :title="t('Poista kojelaudalta:') + ' ' + labelFor(pr)" @click="unpin(pr, c.fingerprint)">✕ {{ labelFor(pr) }}</span>
+                <select v-model="pinTarget[c.fingerprint]" class="pinsel">
+                  <option v-for="r in factoryRoles" :value="r.id">{{ r.label }}</option>
+                </select>
+                <button class="btn ghost" @click="pin(c.fingerprint)">{{ t('Kiinnitä') }}</button>
+              </template>
+              <button class="btn ghost" v-if="c.status === 'active'" @click="propose(c.fingerprint, 'certify')">{{ t('Ehdota sertifiointia') }}</button>
+              <button class="btn danger" v-if="c.status !== 'retired'" @click="propose(c.fingerprint, 'retire')">{{ t('Ehdota poistoa') }}</button>
+            </td>
+          </tr>
+          <tr v-if="!registry.length"><td colspan="6" class="muted">{{ t('Ei vielä kaavioita. Kysy jotain tehdasroolina.') }}</td></tr>
+        </table>
+        <h2 style="margin-top:20px">{{ t('Hyväksyntää odottavat') }}</h2>
+        <table>
+          <tr v-for="p in proposals" :key="p._id">
+            <td><b>{{ t(p.action === 'certify' ? 'Sertifiointi' : 'Poisto') }}</b>: {{ chartTitle(p) }}</td><td>{{ t(p.status) }}</td>
+            <td v-if="p.status === 'pending'">
+              <button class="btn ghost" @click="decide(p._id, true)">{{ t('Hyväksy') }}</button>
+              <button class="btn danger" @click="decide(p._id, false)">{{ t('Hylkää') }}</button>
+              <span class="muted"> {{ t('(tai n8n:n kautta)') }}</span>
+            </td><td v-else class="muted">{{ t(p.decided_by) }}</td>
+          </tr>
+          <tr v-if="!proposals.length"><td class="muted">{{ t('Ei ehdotuksia.') }}</td></tr>
+        </table>
+        <h2 style="margin-top:20px">{{ t('Audit log') }}</h2>
+        <table><tr v-for="a in auditLog"><td class="muted">{{ dateTime(a.ts) }}</td><td>{{ t(a.event) }}</td><td>{{ chartTitle(a) || a.fingerprint || a.proposal_id }}</td></tr></table>
+      </div>
+
+      <template v-else>
+      <div class="viewtabs">
+        <button :class="{on: view === 'dash'}" @click="setView('dash')">Kojelauta</button>
+        <button :class="{on: view === 'chat'}" @click="setView('chat')">Keskustelu</button>
+      </div>
+
+      <div class="panel" v-if="view === 'dash'">
+        <h2>Kojelauta · {{ roleLabel }}</h2>
+        <div class="fresh" v-if="dash">Sertifioidut KPI:t: {{ dash.kpi_ids.join(', ') || '–' }} · {{ dash.tiles.length }} kaaviota · luvut lasketaan aina tuoreesta datasta</div>
+        <div class="spinner" v-if="dashBusy">Haetaan sertifioituja kaavioita…</div>
+        <div class="empty muted" v-if="dash && !dash.tiles.length">
+          Ei vielä sertifioituja kaavioita tälle roolille. Kysy lukuja keskustelussa ja pyydä Data Stewardia sertifioimaan ne.
+          <div style="margin-top:10px"><button class="btn ghost" @click="setView('chat')">Siirry keskusteluun</button></div>
+        </div>
+        <div class="tiles">
+          <div v-for="t in dash.tiles" :key="t.fingerprint" class="tile">
+            <div class="tile-head">
+              <b>{{ t.title }}</b>
+              <span class="pill" v-for="k in t.kpi_ids" :key="k">{{ k }}</span>
+              <span class="pill pin" v-if="t.pinned" title="Data Steward kiinnitti tämän kojelaudalle">kiinnitetty</span>
+            </div>
+            <div class="chartbox" v-if="t.chart && t.chart.type !== 'table'"><canvas :id="'d' + t.fingerprint"></canvas></div>
+            <div v-if="t.chart && t.chart.type === 'table'" style="overflow:auto;max-height:320px"><table>
+              <tr><th v-for="k in Object.keys(t.rows[0] || {})">{{ k }}</th></tr>
+              <tr v-for="r in t.rows.slice(0, 15)"><td v-for="v in Object.values(r)">{{ typeof v === 'number' ? fmt(v) : v }}</td></tr>
+            </table></div>
+            <div class="warn" v-if="t.error">Laskenta epäonnistui: {{ t.error }}</div>
+            <details v-if="t.receipt"><summary>Laskenta</summary>
+              <dl class="receipt">
+                <dt>KPI</dt><dd>{{ t.receipt.kpi.id }} {{ t.receipt.kpi.name }} <span class="pill">{{ t.receipt.kpi.definition_status }}</span></dd>
+                <dt>Määritelmä</dt><dd>{{ t.receipt.definition }}</dd>
+                <template v-if="t.receipt.source"><dt>Lähde</dt><dd>{{ t.receipt.source.sheet || t.receipt.source.collection }} · {{ t.receipt.source.rows_used }} riviä</dd></template>
+                <template v-if="t.receipt.warnings && t.receipt.warnings.length"><dt>Huomiot</dt><dd class="warn"><div v-for="w in t.receipt.warnings">{{ w }}</div></dd></template>
+                <dt>Sormenjälki</dt><dd>{{ t.fingerprint }}</dd>
+              </dl>
+            </details>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel chat" v-else>
+        <div class="chat-head">
+          <h2>{{ t('Keskustelu') }} · {{ roleLabel }}</h2>
+          <button class="btn ghost" v-if="answers.length" @click="newChat()">{{ t('Uusi keskustelu') }}</button>
+        </div>
+        <div class="empty muted" v-if="!answers.length">{{ t('Kysy luvuista omin sanoin. Voit jatkaa kysymällä esimerkiksi “entä Suomessa?” tai “miksi?”.') }}</div>
+      <div v-for="(a, idx) in answers" :key="a.key" class="turn">
+        <div class="bubble user">{{ a.question }}</div>
+        <div class="bubble bot" v-if="a.decision === 'CHAT'">{{ a.answer }}</div>
+        <div class="answer" v-else>
+        <span class="decision" :class="a.decision">{{ t(a.decision) }}</span><b>{{ a.title }}</b>
+        <span class="muted" v-if="a.rule"> · {{ a.rule }}</span>
+        <p class="said">{{ a.answer }}</p>
+        <p class="reason muted" v-if="a.reason !== a.answer">{{ a.reason }}</p>
+        <template v-if="a.chart && a.chart.labels.length">
+          <div class="chartbox" v-if="a.chart.type !== 'table'"><canvas :id="'c' + a.key"></canvas></div>
+          <details :open="a.chart.type === 'table'"><summary>{{ t('Taulukko') }} ({{ fmt(a.rows.length) }} {{ t('riviä') }})</summary>
+            <div style="overflow:auto;max-height:360px"><table>
+              <tr><th v-for="k in Object.keys(a.rows[0] || {})">{{ t(k) }}</th></tr>
+              <tr v-for="r in a.rows.slice(0, 50)"><td v-for="v in Object.values(r)">{{ typeof v === 'number' ? fmt(v) : t(v) }}</td></tr>
+            </table></div>
+          </details>
+        </template>
+        <details v-if="a.receipt"><summary>{{ t('Näytä laskenta') }}</summary>
+          <dl class="receipt">
+            <dt>KPI</dt><dd>{{ a.receipt.kpi.id }} {{ t(a.receipt.kpi.name) }} <span class="pill">{{ t(a.receipt.kpi.definition_status) }}</span></dd>
+            <dt>{{ t('Määritelmä') }}</dt><dd>{{ a.receipt.definition }}</dd>
+            <template v-if="a.receipt.source"><dt>{{ t('Lähde') }}</dt><dd>{{ a.receipt.source.sheet || a.receipt.source.collection }} · {{ fmt(a.receipt.source.rows_used) }} {{ t('riviä') }}<template v-if="a.receipt.source.months"> · {{ a.receipt.source.months }}</template></dd></template>
+            <dt>{{ t('Suodattimet') }}</dt><dd>{{ filtersText(a.receipt.filters) }}</dd>
+            <template v-if="a.receipt.example_steps && a.receipt.example_steps.length"><dt>{{ t('Esimerkkilaskenta (1. rivi)') }}</dt><dd><div v-for="s in a.receipt.example_steps">{{ s }}</div></dd></template>
+            <template v-if="a.receipt.warnings && a.receipt.warnings.length"><dt>{{ t('Huomiot') }}</dt><dd class="warn"><div v-for="w in a.receipt.warnings">{{ w }}</div></dd></template>
+            <dt>{{ t('Sormenjälki') }}</dt><dd>{{ a.fingerprint }}</dd>
+          </dl>
+          <a v-if="a.result_id" :href="'/api/results/' + a.result_id + '/raw.csv'">{{ t('Lataa raakadata (CSV)') }}</a>
+        </details>
+        <div class="row" v-if="(a.similar_charts || []).length">{{ t('Samankaltaisia kaavioita') }}: <span v-for="s in a.similar_charts" class="pill">{{ chartTitle(s) }} ({{ s.score }})</span></div>
+        <div class="row" v-if="(a.related_reports || []).length">{{ t('Bayerin olemassa olevat raportit samasta KPI:stä') }}:
+          <span v-for="r in a.related_reports" class="pill">{{ r.asset_id }} {{ r.name }} · {{ t(r.endorsement) }}</span></div>
+        </div>
+      </div>
+        <div class="spinner" v-if="busy">{{ t('Gemini tulkitsee kysymystä ja moottori laskee…') }}</div>
+        <form class="ask" @submit.prevent="ask()">
+          <input v-model="question" :placeholder="t('Kysy luvuista, pyydä kaaviota tai jatka edellisestä…')" :disabled="busy || languageLoading" ref="input">
+          <button :disabled="busy || languageLoading || !question.trim()">{{ t('Lähetä') }}</button>
+        </form>
+        <div class="chips"><button v-for="e in examples[role]" @click="question = e; ask()" :disabled="busy || languageLoading">{{ e }}</button></div>
+      </div>
+      </template>
+    </section>
+  </main>
+
+  <div class="overlay" v-if="modal || modalBusy" @click.self="closeCard()">
+    <div class="modal" v-if="modal">
+      <button class="close" @click="closeCard()" aria-label="Sulje">✕</button>
+      <h3>{{ modal.label }}</h3>
+      <div class="modalval">{{ fmt(modal.value) }}<small v-if="modal.unit"> {{ modal.unit }}</small></div>
+      <div class="delta" v-if="modal.target != null" :class="deltaTone(modal)">{{ deltaText(modal) }}</div>
+      <p class="desc">{{ modal.description }}</p>
+      <div class="kpi" v-if="modal.kpi"><span class="pill">{{ modal.kpi.id }}</span> {{ modal.kpi.name }} · {{ modal.kpi.definition }}</div>
+      <div class="chartbox" v-if="modal.chart && modal.chart.labels.length"><canvas id="modalchart"></canvas></div>
+      <details v-if="modal.rows && modal.rows.length" :open="!(modal.chart && modal.chart.labels.length)">
+        <summary>Rivit ({{ modal.rows.length }})</summary>
+        <div style="overflow:auto;max-height:300px"><table>
+          <tr><th v-for="k in Object.keys(modal.rows[0])">{{ k }}</th></tr>
+          <tr v-for="r in modal.rows"><td v-for="v in Object.values(r)">{{ typeof v === 'number' ? fmt(v) : v }}</td></tr>
+        </table></div>
+      </details>
+      <div class="row">
+        <button v-if="modal.ask_hint" class="btn ghost" @click="askFrom(modal.ask_hint); closeCard()">Kysy tästä chatissa</button>
+        <span class="muted" v-if="modal.source">{{ modal.source }}</span>
+      </div>
+    </div>
+    <div class="modal" v-else-if="modalBusy"><div class="spinner">Ladataan kortin tietoja…</div></div>
+  </div>
+</div>
+
+<script>
+const { createApp, nextTick } = Vue;
+const charts = {};
+let modalChart = null;
+function applyChartTheme(chart) {
+  const style = getComputedStyle(document.documentElement);
+  const textColor = style.getPropertyValue('--muted').trim();
+  const gridColor = style.getPropertyValue('--line').trim();
+  const palette = style.getPropertyValue('--chart-palette').split(',').map(color => color.trim());
+  chart.data.datasets.forEach((dataset, i) => {
+    dataset.borderColor = palette[i % palette.length];
+    dataset.backgroundColor = dataset.borderColor + (chart.config.type === 'line' ? '' : 'cc');
+  });
+  chart.options.plugins.legend.labels.color = textColor;
+  for (const axis of Object.values(chart.options.scales)) {
+    axis.ticks.color = textColor;
+    axis.grid.color = gridColor;
+    axis.border.color = gridColor;
+    if (axis.title) axis.title.color = textColor;
+  }
+  chart.update('none');
+}
+createApp({
+  data: () => ({
+    language: document.documentElement.lang === 'fi' ? 'fi' : 'en', languageLoading: false,
+    theme: document.documentElement.dataset.theme === 'light' ? 'light' : 'dark',
+    roles: [], role: 'tehtaan_johtaja', brief: null, meter: null, question: '', busy: false, answers: [],
+    sessionId: null, registry: [], proposals: [], auditLog: [],
+    modal: null, modalBusy: false, cardSeq: 0,
+    view: 'dash', dash: null, dashBusy: false, pinTarget: {}, pinnedBy: {},
+  }),
+  computed: {
+    examples() { return EXAMPLES[this.language]; },
+    locale() { return this.language === 'fi' ? 'fi-FI' : 'en-GB'; },
+    roleLabel() { const r = this.roles.find(x => x.id === this.role); return r ? r.label : ''; },
+    factoryRoles() { return this.roles.filter(r => r.id !== 'data_steward'); },
+  },
+  async mounted() {
+    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') this.closeCard(); });
+    this.updateLanguage();
+    try { await this.refresh(); } catch { alert(this.t('Pyyntö epäonnistui. Yritä uudelleen.')); }
+  },
+  methods: {
+    t(source) {
+      if (typeof source !== 'string') return source;
+      if (this.language === 'en') {
+        const canonical = Object.keys(FINNISH).find(key => FINNISH[key] === source) ?? source;
+        return Object.hasOwn(ENGLISH, canonical) ? ENGLISH[canonical] : canonical;
+      }
+      return Object.hasOwn(FINNISH, source) ? FINNISH[source] : source;
+    },
+    chartTitle(chart) {
+      const registered = this.registry.find(c => c.fingerprint === chart.fingerprint) || chart;
+      return registered.titles?.[this.language] || (registered.language === this.language ? registered.title :
+        registered.spec?.metric ? this.t(registered.spec.metric) : chart.title);
+    },
+    chartLabel(label) { return String(label).split(' · ').map(part => this.t(part)).join(' · '); },
+    updateLanguage() {
+      document.documentElement.lang = this.language;
+      document.title = 'Build Less ' + this.t('assistentti');
+    },
+    async setLanguage(language) {
+      if (this.busy || this.languageLoading || !['en', 'fi'].includes(language)) return;
+      this.language = language;
+      this.updateLanguage();
+      Object.values(charts).forEach(chart => {
+        chart.options.locale = this.locale;
+        chart.data.labels = chart.data.labels.map(label => this.chartLabel(label));
+        chart.data.datasets.forEach(dataset => { dataset.label = this.chartLabel(dataset.label); });
+        chart.options.scales.y.title.text = this.t(chart.options.scales.y.title.text);
+        chart.update('none');
+      });
+      try { localStorage.setItem('sinceai-language', language); } catch {}
+      this.languageLoading = true;
+      try { await this.refresh(); } catch { alert(this.t('Pyyntö epäonnistui. Yritä uudelleen.')); }
+      finally { this.languageLoading = false; }
+    },
+    async getJSON(url) {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Request failed');
+      return response.json();
+    },
+    toggleTheme() {
+      this.theme = this.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = this.theme;
+      try { localStorage.setItem('sinceai-theme', this.theme); } catch {}
+      Object.values(charts).forEach(applyChartTheme);
+    },
+    async refresh() {
+      const language = this.language, role = this.role;
+      const urls = ['/api/roles?language=' + language, '/api/briefing/' + role + '?language=' + language, '/api/meter'];
+      if (role === 'data_steward') urls.push('/api/registry', '/api/proposals', '/api/audit');
+      const [roles, brief, meter, registry, proposals, auditLog] = await Promise.all(urls.map(url => this.getJSON(url)));
+      if (language !== this.language || role !== this.role) return;
+      Object.assign(this, {roles, brief, meter});
+      if (role === 'data_steward') {
+        Object.assign(this, {registry, proposals, auditLog});
+        this.pinnedBy = {};
+        for (const r of this.factoryRoles) {
+          this.pinnedBy[r.id] = (await this.getJSON('/api/dashboards/' + r.id + '?tiles=false')).pinned || [];
+        }
+        this.registry.forEach(c => { if (this.factoryRoles.length && !(c.fingerprint in this.pinTarget)) this.pinTarget[c.fingerprint] = this.factoryRoles[0].id; });
+      } else if (this.view === 'dash') {
+        await this.loadDash();
+      }
+    },
+    async setRole(r) { this.role = r; this.brief = null; this.newChat(); this.dash = null; await this.refresh(); },
+    newChat() {
+      this.clearCharts();
+      this.answers = []; this.sessionId = null;
+    },
+    clearCharts() {
+      Object.values(charts).forEach(c => c.destroy());
+      for (const k in charts) delete charts[k];
+    },
+    setView(v) { this.view = v; this.clearCharts(); if (v === 'dash') this.loadDash(); },
+    async loadDash() {
+      if (this.role === 'data_steward') return;
+      this.dashBusy = true;
+      try {
+        this.dash = await (await fetch('/api/dashboards/' + this.role)).json();
+        await nextTick();
+        (this.dash.tiles || []).forEach(t => this.drawChart('d' + t.fingerprint, t.chart, t.unit));
+      } finally { this.dashBusy = false; }
+    },
+    async ask() {
+      if (this.busy || this.languageLoading || !this.question.trim()) return;
+      this.busy = true;
+      try {
+        const res = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: this.role, question: this.question, session_id: this.sessionId, language: this.language }) });
+        if (!res.ok) throw new Error(this.t(res.status >= 500 ? 'AI-palvelu ei ole juuri nyt käytettävissä. Yritä hetken kuluttua uudelleen.' : 'Pyyntö epäonnistui. Yritä uudelleen.'));
+        const a = await res.json();
+        a.key = Date.now(); this.sessionId = a.session_id;
+        this.answers.push(a); this.question = '';
+        await nextTick(); this.draw(a);
+        this.$refs.input && this.$refs.input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        this.meter = await (await fetch('/api/meter')).json();
+      } catch (e) { alert(this.t('Virhe') + ': ' + (e.message === 'Failed to fetch' ? this.t('Pyyntö epäonnistui. Yritä uudelleen.') : e.message)); }
+      this.busy = false;
+    },
+    mkChart(el, chart, unit) {
+      const instance = new Chart(el, {
+        type: chart.type === 'line' ? 'line' : 'bar',
+        data: { labels: chart.labels.map(label => this.chartLabel(label)), datasets: chart.datasets.map(d => ({ ...d, label: this.chartLabel(d.label), tension: 0, spanGaps: true })) },
+        options: { locale: this.locale, maintainAspectRatio: false, plugins: { legend: { display: chart.datasets.length > 1, position: 'bottom', labels: {} } },
+          scales: {
+            x: { ticks: {}, grid: {}, border: {} },
+            y: { ticks: {}, grid: {}, border: {}, title: { display: true, text: this.t(unit) } },
+          } },
+      });
+      applyChartTheme(instance);
+      return instance;
+    },
+    draw(a) {
+      this.drawChart('c' + a.key, a.chart, a.unit);
+    },
+    drawChart(id, chart, unit) {
+      const el = document.getElementById(id);
+      if (!el || !chart || chart.type === 'table') return;
+      if (charts[id]) charts[id].destroy();
+      charts[id] = this.mkChart(el, chart, unit);
+    },
+    drawModal() {
+      const el = document.getElementById('modalchart');
+      if (!el || !this.modal.chart) return;
+      if (modalChart) modalChart.destroy();
+      modalChart = this.mkChart(el, this.modal.chart, this.modal.unit || '');
+    },
+    async openCard(c) {
+      const seq = ++this.cardSeq;
+      this.modalBusy = true;
+      this.modal = null;
+      try {
+        const res = await fetch('/api/briefing/' + this.role + '/card/' + c.key);
+        if (!res.ok) throw new Error(await res.text());
+        const d = await res.json();
+        if (seq !== this.cardSeq) return;
+        this.modal = d;
+        await nextTick();
+        this.drawModal();
+      } catch (e) { alert(this.t('Virhe') + ': ' + e.message); }
+      if (seq === this.cardSeq) this.modalBusy = false;
+    },
+    closeCard() {
+      this.cardSeq++;
+      this.modal = null;
+      this.modalBusy = false;
+      if (modalChart) { modalChart.destroy(); modalChart = null; }
+    },
+    async propose(fp, action) {
+      await fetch('/api/registry/' + fp + '/propose', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) });
+      await this.refresh();
+    },
+    async decide(id, approved) {
+      await fetch('/api/registry/decision', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proposal_id: id, approved, approver: 'Data Steward (UI)' }) });
+      await this.refresh();
+    },
+    labelFor(id) { const r = this.roles.find(x => x.id === id); return r ? r.label : id; },
+    rolesWherePinned(fp) { return Object.keys(this.pinnedBy).filter(r => (this.pinnedBy[r] || []).includes(fp)); },
+    async pin(fp) {
+      const role = this.pinTarget[fp] || (this.factoryRoles[0] || {}).id;
+      const res = await fetch('/api/dashboards/' + role + '/charts', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fingerprint: fp }) });
+      if (!res.ok) alert('Kiinnitys epäonnistui: ' + await res.text());
+      await this.refresh();
+    },
+    async unpin(role, fp) {
+      await fetch('/api/dashboards/' + role + '/charts/' + fp, { method: 'DELETE' });
+      await this.refresh();
+    },
+    fmt(v) { return v == null ? '–' : (typeof v === 'number' ? v.toLocaleString(this.locale, { maximumFractionDigits: 1 }) : v); },
+    deltaText(c) {
+      const diff = c.value - c.target;
+      const sign = diff > 0 ? '+' : diff < 0 ? '−' : '';
+      return sign + this.fmt(Math.abs(diff)) + ' vs tavoite ' + this.fmt(c.target) + (c.unit ? ' ' + c.unit : '');
+    },
+    deltaTone(c) {
+      const good = c.lower_is_better ? c.value <= c.target : c.value >= c.target;
+      return good ? 'good' : 'bad';
+    },
+    askFrom(hint) {
+      this.question = hint;
+      if (this.role !== 'data_steward' && this.view !== 'chat') this.setView('chat');
+      this.$nextTick(() => {
+        if (this.$refs.input) {
+          this.$refs.input.focus();
+          this.$refs.input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+    },
+    date(d) { return d ? new Date(d).toLocaleDateString(this.locale) : '–'; },
+    dateTime(d) { return d ? new Date(d).toLocaleString(this.locale) : '–'; },
+    filtersText(f) {
+      if (!f) return '–';
+      const parts = [];
+      if (f.plants && f.plants.length) parts.push(this.t('tehdas') + ' ' + f.plants.join(', '));
+      if (f.product_ids && f.product_ids.length) parts.push(this.t('tuote') + ' ' + f.product_ids.join(', '));
+      if (f.market_ids && f.market_ids.length) parts.push(this.t('markkina') + ' ' + f.market_ids.join(', '));
+      if (f.statuses && f.statuses.length) parts.push(this.t('tila') + ' ' + f.statuses.map(s => this.t(s)).join(', '));
+      return parts.join(' · ') || this.t('Ei suodattimia');
+    },
+  },
+}).mount('#app');
+</script>
+</body>
+</html>
