@@ -33,11 +33,13 @@ def _gemini():
     global _client
     if _client is None:
         from google import genai  # imported lazily so dry runs need no key
+        from google.genai import types
 
         key = os.environ.get("GEMINI_API_KEY")
         if not key:
             raise RuntimeError("Set GEMINI_API_KEY")
-        _client = genai.Client(api_key=key)
+        # a hung connection must fail (and be retried), never block a request or an evaluation run forever
+        _client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=60_000))
     return _client
 
 

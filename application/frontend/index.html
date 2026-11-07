@@ -166,6 +166,9 @@ try {
   .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 10px; font-size: 13px; }
   a { color: var(--accent); }
   .muted { color: var(--muted); }
+  .okmark { color: var(--accent); }
+  .evalcards { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .evalcards .card { cursor: default; }
   .skeleton { position: relative; overflow: hidden; border-radius: 6px; background: var(--line); }
   .skeleton::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, var(--skel-shine), transparent); animation: skel-shimmer 1.3s infinite; }
   @keyframes skel-shimmer { 100% { transform: translateX(100%); } }
@@ -379,6 +382,28 @@ try {
         </table></div>
         <h2 style="margin-top:20px">{{ t('Audit log') }}</h2>
         <table><tr v-for="a in auditLog"><td class="muted">{{ dateTime(a.ts) }}</td><td>{{ t(a.event) }}</td><td>{{ chartTitle(a) || a.fingerprint || a.proposal_id }}</td></tr></table>
+        <h2 style="margin-top:20px">{{ t('Laadunvarmistus') }}</h2>
+        <div v-if="evalRun && evalRun.summary">
+          <div class="fresh" style="margin-top:0">{{ t('Testikysymykset ajettu') }} {{ dateTime(evalRun.started_at) }} · {{ evalRun.model }} · {{ evalRun.repeats }} {{ t('toistoa') }}</div>
+          <div class="cards evalcards">
+            <div class="card"><div class="v">{{ evalRun.summary.passed }}/{{ evalRun.summary.total }}</div><div class="l">{{ t('Tulkittu oikein') }} ({{ pct(evalRun.summary.accuracy) }})</div></div>
+            <div class="card"><div class="v">{{ evalRun.summary.consistent }}/{{ evalRun.summary.total }}</div><div class="l">{{ t('Sama tulkinta joka kerta') }} ({{ pct(evalRun.summary.consistency) }})</div></div>
+            <div class="card"><div class="v">{{ evalRun.summary.unsupported_guessed }}/{{ evalRun.summary.unsupported_total }}</div><div class="l">{{ t('Arvauksia kysymyksiin ilman dataa') }}</div></div>
+            <div class="card" v-for="(v, k) in evalRun.summary.by_category"><div class="v">{{ v.passed }}/{{ v.total }}</div><div class="l">{{ t(k) }}</div></div>
+          </div>
+          <details style="margin-top:10px"><summary>{{ t('Kaikki testikysymykset') }} ({{ evalRun.results.length }})</summary>
+            <div style="overflow:auto;max-height:420px"><table>
+              <tr><th>#</th><th>{{ t('Rooli') }}</th><th>{{ t('Kysymys') }}</th><th>{{ t('Tulos') }}</th><th>{{ t('Toistettava') }}</th><th>{{ t('Huomiot') }}</th></tr>
+              <tr v-for="r in evalRun.results" :key="r.id">
+                <td class="muted">{{ r.id }}</td><td>{{ labelFor(r.role) }}</td><td>{{ r.question }}</td>
+                <td :class="r.passed ? 'okmark' : 'warn'">{{ r.passed ? '✓' : '✗' }}</td>
+                <td :class="r.consistent ? 'okmark' : 'warn'">{{ r.consistent ? '✓' : '✗' }}</td>
+                <td class="muted">{{ r.problems.join('; ') }}</td>
+              </tr>
+            </table></div>
+          </details>
+        </div>
+        <div class="muted" v-else>{{ t('Ei vielä arviointiajoa. Aja komentoriviltä: python -m tools.run_eval') }}</div>
       </div>
 
       <div class="panel" v-else-if="view === 'dash'">
@@ -623,7 +648,7 @@ createApp({
     language: document.documentElement.lang === 'fi' ? 'fi' : 'en', languageLoading: false,
     theme: document.documentElement.dataset.theme === 'light' ? 'light' : 'dark',
     roles: [], role: 'tehtaan_johtaja', brief: null, cardCharts: {}, meter: null, question: '', busy: false, answers: [],
-    sessionId: null, registry: [], proposals: [], auditLog: [],
+    sessionId: null, registry: [], proposals: [], auditLog: [], evalRun: null,
     businessRequests: [], brFilter: { urgency: '', status: '', product: '', market: '', q: '' },
     modal: null, modalBusy: false, cardSeq: 0,
     showRetired: false, preview: null, previewBusy: false, previewSeq: 0,
@@ -732,12 +757,12 @@ createApp({
       const language = this.language, role = this.role;
       const urls = ['/api/roles?language=' + language, '/api/briefing/' + role + '?language=' + language, '/api/meter',
                     '/api/briefing/' + role + '/charts?language=' + language];
-      if (role === 'data_steward') urls.push('/api/registry', '/api/proposals', '/api/audit', '/api/business-requests');
-      const [roles, brief, meter, cardCharts, registry, proposals, auditLog, businessRequests] = await Promise.all(urls.map(url => this.getJSON(url)));
+      if (role === 'data_steward') urls.push('/api/registry', '/api/proposals', '/api/audit', '/api/business-requests', '/api/eval/latest');
+      const [roles, brief, meter, cardCharts, registry, proposals, auditLog, businessRequests, evalRun] = await Promise.all(urls.map(url => this.getJSON(url)));
       if (language !== this.language || role !== this.role) return;
       Object.assign(this, {roles, brief, meter, cardCharts});
       if (role === 'data_steward') {
-        Object.assign(this, {registry, proposals, auditLog, businessRequests: businessRequests || []});
+        Object.assign(this, {registry, proposals, auditLog, businessRequests: businessRequests || [], evalRun});
         this.pinnedBy = {};
         for (const r of this.factoryRoles) {
           this.pinnedBy[r.id] = (await this.getJSON('/api/dashboards/' + r.id + '?tiles=false')).pinned || [];
@@ -947,6 +972,7 @@ createApp({
     },
     date(d) { return d ? new Date(d).toLocaleDateString(this.locale) : '–'; },
     dateTime(d) { return d ? new Date(d).toLocaleString(this.locale) : '–'; },
+    pct(x) { return x == null ? '–' : Math.round(x * 100) + ' %'; },
     filtersText(f) {
       if (!f) return '–';
       const parts = [];

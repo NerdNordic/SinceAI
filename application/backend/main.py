@@ -204,6 +204,21 @@ def audit():
     return engine.audit()
 
 
+@app.get("/api/eval/latest")
+def eval_latest():
+    """Latest golden-question evaluation run (python -m tools.run_eval)."""
+    from . import evaluation
+
+    return evaluation.latest() or {}
+
+
+@app.get("/api/eval/runs")
+def eval_runs():
+    from . import evaluation
+
+    return evaluation.history()
+
+
 @app.get("/api/health")
 def health():
     db = get_db()

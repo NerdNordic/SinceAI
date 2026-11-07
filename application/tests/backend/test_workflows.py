@@ -634,3 +634,88 @@ def test_static_responses_always_revalidate(client):
     i18n = client.get("/static/i18n.js")
     assert i18n.status_code == 200
     assert i18n.headers["cache-control"] == "no-cache"
+
+
+# --------------------------------------------------------------------------- golden-question evaluation
+
+def test_eval_scoring_rules(client):
+    from backend import evaluation as ev
+
+    qs = {q["id"]: q for q in ev.load_questions()}
+    assert len(qs) == 40
+    ok = ChartSpec(metric="On-Time In-Full", dimensions=["month"], filters=Filters(plants=["Plant-A"]))
+    assert ev.score(qs["q01"], ok) == []                                   # factory role default plant
+    assert ev.score(qs["q01"], ok.model_copy(update={"metric": "Units Shipped"}))     # wrong metric
+    assert ev.score(qs["q01"], ok.model_copy(update={"dimensions": ["market"]}))      # wrong dimension
+    extra = ok.model_copy(deep=True); extra.filters.market_ids = ["FI"]
+    assert any("market_ids" in p for p in ev.score(qs["q01"], extra))                 # unasked filter
+    guess = ChartSpec(metric="Forecast Variance", dimensions=["market"])
+    assert ev.score(qs["q34"], guess)                                                 # guessed instead of asking back
+    assert ev.score(qs["q34"], ChartSpec(metric="UNSUPPORTED", understood=False)) == []
+    assert ev.score(qs["q38"], ChartSpec(metric="UNSUPPORTED", mode="chat", reply="Hei")) == []
+    repl = ChartSpec(metric="Replenishment Reorder-By Date", filters=Filters(plants=["Plant-A"], statuses=["STOCKOUT_RISK"]))
+    assert any("missing" in p for p in ev.score(qs["q08"], repl))                    # ORDER_NOW missing
+    fv = ChartSpec(metric="Forecast Variance", dimensions=["product"])
+    assert any("actuals_only" in p for p in ev.score(qs["q31"], fv))
+
+
+def test_eval_run_stores_result_and_api(client):
+    from backend import evaluation as ev
+
+    answers = {
+        "Näytä toimitusvarmuus kuukausittain": [ChartSpec(metric="On-Time In-Full", dimensions=["month"])] * 2,
+        "OTIF by market": [ChartSpec(metric="On-Time In-Full", dimensions=["market"]),
+                           ChartSpec(metric="On-Time In-Full", dimensions=["month"])],          # inconsistent
+        "Mikä on budjettipoikkeama?": [ChartSpec(metric="Forecast Variance", dimensions=[])] * 2,  # guesses
+        "Mitä osaat?": [ChartSpec(metric="UNSUPPORTED", mode="chat", reply="Autan luvuissa.")] * 2,
+    }
+    calls: dict[str, int] = {}
+    orig = specmod._call_gemini
+
+    def fake(prompt, language="fi"):
+        q = prompt.rsplit('"""', 2)[-2].strip()
+        i = calls.get(q, 0)
+        calls[q] = i + 1
+        return answers[q][i].model_copy(deep=True)
+
+    specmod._call_gemini = fake
+    try:
+        doc = ev.run(repeats=2, delay=0, only=["q01", "q05", "q34", "q38"])
+    finally:
+        specmod._call_gemini = orig
+    s = doc["summary"]
+    assert (s["total"], s["passed"], s["consistent"]) == (4, 3, 3)
+    assert (s["unsupported_total"], s["unsupported_guessed"]) == (1, 1)
+    assert all(n == 2 for n in calls.values())                     # every question asked twice, no cache
+    latest = client.get("/api/eval/latest").json()
+    assert latest["_id"] == doc["_id"] and len(latest["results"]) == 4
+    assert client.get("/api/eval/runs").json()[0]["summary"]["passed"] == 3
+
+
+def test_business_roles_briefing_and_scope(client):
+    """Roles beyond the plant: market-scoped country manager and an all-markets finance controller."""
+    cm = client.get("/api/briefing/country_manager_fi").json()
+    keys = [c["key"] for c in cm["cards"]]
+    assert keys == ["net_sales", "growth", "access", "market_otif", "market_urgent"]
+    assert cm["role"] == "Country manager, Finland" and "FI" in cm["freshness"]
+    assert all(c["value"] is not None for c in cm["cards"])
+    for x in cm["items"]:
+        assert x
+    fc = client.get("/api/briefing/finance_controller?language=fi").json()
+    assert [c["key"] for c in fc["cards"]] == ["net_sales", "variance", "growth"]
+    assert fc["role"] == "Talouscontroller" and "kaikki markkinat" in fc["freshness"]
+    # the card value equals the last point of its detail chart (same governed computation)
+    for role, b in (("country_manager_fi", cm), ("finance_controller", fc)):
+        for c in b["cards"]:
+            d = client.get(f"/api/briefing/{role}/card/{c['key']}").json()
+            assert d["description"] and d["source"], (role, c["key"])
+            if c["key"] != "market_urgent":
+                assert d["kpi"]["id"].startswith("KPI-")
+                last = [v for v in d["chart"]["datasets"][0]["data"] if v is not None][-1]
+                assert last == pytest.approx(c["value"], abs=0.051), (role, c["key"])
+        client.get(f"/api/briefing/{role}/charts").raise_for_status()
+    # the market role gets its market as default scope, like plant roles get their plant
+    s = specmod._sanitize(ChartSpec(metric="Net Sales", dimensions=["month"], title="x"), "country_manager_fi", "fi")
+    assert s.filters.market_ids == ["FI"]
+    s = specmod._sanitize(ChartSpec(metric="Net Sales", dimensions=["month"], title="x"), "finance_controller", "fi")
+    assert s.filters.market_ids == [] and s.filters.plants == []
