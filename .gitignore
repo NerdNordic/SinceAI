@@ -8,6 +8,7 @@ __pycache__/
 # Python environments and generated files
 .venv/
 venv/
+/opencode.jsonc
 __pycache__/
 *.py[cod]
 .pytest_cache/

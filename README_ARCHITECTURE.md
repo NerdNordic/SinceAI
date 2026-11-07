@@ -11,15 +11,20 @@ No real Bayer data is represented; all names, usage and figures are synthetic.
 ## Quick start
 
 ```bash
-pip install -r requirements.txt
-cp .env.example .env         # then edit: any OpenAI-compatible endpoint + model
+pip install -r govagent/requirements.txt \
+            -r streamlit_app/requirements.txt \
+            -r factory/requirements.txt   # stdlib only, installs nothing
+cat govagent/.env.example streamlit_app/.env.example > .env   # then edit: endpoint + model
+# (Windows PowerShell: Get-Content govagent/.env.example,streamlit_app/.env.example > .env)
 
-streamlit run app.py         # chat UI + governance audit (localhost-only, see below)
+streamlit run streamlit_app   # chat UI + governance audit (run from the repo root;
+                              # localhost-only, see below)
 # or headless:
 python cli.py audit          # full governance audit report
 python cli.py ask "Can we build a launch dashboard for Lynkuet with market access and adoption?"
 python cli.py demo           # canned demo questions
 python smoke_test_tools.py   # verifies every tool against the DB (no LLM needed)
+python smoke_test_factory.py # verifies the factory-assistant stub contract (no LLM/n8n needed)
 ```
 
 Set `GOVAGENT_PROVIDER=stub` to exercise the agent loop and UI with no LLM endpoint
@@ -29,14 +34,41 @@ Set `GOVAGENT_PROVIDER=stub` to exercise the agent loop and UI with no LLM endpo
 
 Streamlit binds to all network interfaces by default and prints a `Network URL` — on a
 corporate LAN that means the app is reachable by others. This repo pins it to loopback via
-`.streamlit/config.toml` (`server.address = 127.0.0.1`), so plain `streamlit run app.py`
+`.streamlit/config.toml` (`server.address = 127.0.0.1`), so plain `streamlit run streamlit_app`
 listens only on your machine.
 
 Alternatives, if you ever want to override:
 
-- one-off CLI flag: `streamlit run app.py --server.address 127.0.0.1`
+- one-off CLI flag: `streamlit run streamlit_app --server.address 127.0.0.1`
 - env var: `STREAMLIT_SERVER_ADDRESS=127.0.0.1` (`set`/`setx` on Windows, `export` in bash)
-- to deliberately share on your LAN: `streamlit run app.py --server.address 0.0.0.0`
+- to deliberately share on your LAN: `streamlit run streamlit_app --server.address 0.0.0.0`
+
+## Factory analytics assistant (multi-page UI, `streamlit_app/`)
+
+Role-based assistant implementing the `img-as-text` concept (steps 1-7) on top of the
+same Streamlit entry point. n8n is the main API: the frontend only calls n8n webhooks
+(question → chart spec via Gemini, fingerprint lookup in the chart registry, canonical
+KPI computed in code, data from MongoDB Atlas) and `N8N_PROVIDER=stub` (default) runs the
+whole UI offline on canned flows.
+
+- **Etusivu**: role selection — Tehtaan johtaja / Vuoropäällikkö / Tuotantotyöntekijä /
+  Data steward (steward opens the existing governance audit + triage flows).
+- **Aamubriiffi**: role's key figures with deviation flags and per-KPI freshness
+  (fresh 🟢 / stale 🟠), deviations by severity, "Kysy tästä" jumps into chat.
+- **Kysy**: chat that renders the build-less verdict — ♻️ REUSE (existing chart, updated
+  data) · ➕ EXTEND (existing + new filter/dimension) · 💬 ANSWER (one-off number +
+  mini-chart, not saved) · 🆕 BUILD (new governed metric, flagged for the Data steward) —
+  with clarify questions suggesting canonical KPIs, plus a receipt (formula, sources,
+  assumption version, freshness) and raw-data CSV download on every chart.
+- Sidebar **build-less meter**: chat requests vs new charts (step 5.a).
+
+Webhook contract (request/response JSON) is documented in `factory/n8n.py`; the stub
+(`factory/stub.py`) is the reference implementation for n8n workflow authors. Steps 8-9
+(chart lifecycle, n8n playbook for retire/certify) are planned, not built.
+
+Demo questions for the stub: "Näytä OEE viimeiset 14 päivää" (reuse), "OEE yövuoroissa"
+(extend), "Paljonko tuotettiin viime yönä?" (answer), "Energiankulutus linjoittain"
+(build), "tuotanto?" (clarify).
 
 ## Architecture
 
@@ -45,15 +77,22 @@ Business user
    │  question ("we need a dashboard for X")
    ▼
 Streamlit app / CLI ──► govagent/loop.py (tool-calling agent loop, max 12 iterations)
-   │                        │
-   │                        ▼
-   │                   govagent/llm.py  (any OpenAI-compatible endpoint via env vars;
-   │                                     function calling; offline stub provider)
+   │      │
+   │      │                 Factory roles (director/shift supervisor/worker)
+   │      │                    │  question or "show me KPI X"
+   │      │                    ▼
+   │      │              factory/n8n.py ── stub (canned demo) or n8n webhooks ──►
+   │      │                 question → chart spec → fingerprint registry →
+   │      │                 canonical KPI computed in code (MongoDB Atlas) →
+   │      │                 chart + receipt + raw CSV
+   │      ▼
+   │               govagent/llm.py  (any OpenAI-compatible endpoint via env vars;
+   │                                 function calling; offline stub provider)
    │                        │
    │                        ▼
    └──────────────► govagent/tools.py  (12 evidence-first tools over read-only SQLite)
                                     │
-                                    ▼
+                                     ▼
                         bayer_sinceai.db (Analytics_Assets, KPI_Catalog, Semantic_Models,
                          Asset_Usage, Lineage_Edges, Governance_Signals, Migration_Backlog,
                          Business_Requests + pharma context sheets)
@@ -136,12 +175,18 @@ lifecycle change, evidence logging of every tool call (the agent already returns
 ## Repository layout
 
 ```
-govagent/            agent package (tools, llm, prompts, loop)
-app.py               Streamlit chat UI + governance audit
+govagent/            agent package (tools, llm, prompts, loop) + standalone
+                     requirements.txt (openai) and .env.example (GOVAGENT_*)
+factory/             n8n webhook client + offline stub (backend transport contract);
+                     requirements.txt documents the stdlib-only dependency set
+streamlit_app/       Streamlit UI package: entrypoint (streamlit_app.py), pages/
+                     (home/briefing/ask/steward), session state + page paths (state.py),
+                     chart rendering (charts.py), role definitions (roles.py), standalone
+                     requirements.txt (streamlit, pandas, openai) and .env.example
 cli.py               headless CLI (audit / ask / call / tools / demo)
 smoke_test_tools.py  36 assertions over the tool layer (no LLM needed)
+smoke_test_factory.py stub-contract assertions for the factory assistant (no LLM/n8n)
 explore_bayer_db.py  exploratory analysis that produced the detection logic + findings.json
 some_findings.md     estate profile (the domain analysis behind the agent's checks)
-requirements.txt     openai, streamlit
-.env.example         endpoint configuration template
+check_mongo_import.py one-off SQLite↔MongoDB parity check (requires pip install pymongo)
 ```

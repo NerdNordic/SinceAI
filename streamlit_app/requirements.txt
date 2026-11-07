@@ -1,0 +1,7 @@
+# streamlit_app — factory analytics assistant UI (run: streamlit run streamlit_app).
+# Standalone-runnable manifest: everything this app needs from this directory.
+streamlit>=1.35
+# charts.py imports pandas directly (streamlit also depends on it)
+pandas>=2
+# Data-steward page runs the govagent agent loop
+openai>=1.40
