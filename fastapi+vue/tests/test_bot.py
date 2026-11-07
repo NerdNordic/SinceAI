@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parent.parent
 os.environ["TODAY"] = "2026-11-06"
 os.environ["GEMINI_API_KEY"] = ""   # no network (also blocks .env from setting it): embeddings and search fall back
 
-from app import db as dbmod, engine, spec as specmod  # noqa: E402
+from app import dashboards as dashmod, db as dbmod, engine, spec as specmod  # noqa: E402
 from app.spec import ChartSpec, Filters  # noqa: E402
 
 # question -> what Gemini would return
@@ -36,6 +36,8 @@ FAKE = {
     # follow-up and chat
     "entä plant b?": ChartSpec(metric="On-Time In-Full", dimensions=["month"], filters=Filters(plants=["Plant-B"]), chart_type="line", title="Toimitusvarmuus kuukausittain, Plant B"),
     "mitä osaat?": ChartSpec(metric="UNSUPPORTED", mode="chat", reply="Voin näyttää tehtaan luvut ja kaaviot hallituilla määritelmillä."),
+    "nettomyynti markkinoittain": ChartSpec(metric="Net Sales", dimensions=["market"], title="Nettomyynti markkinoittain"),
+    "toimitetut kappaleet markkinoittain": ChartSpec(metric="Units Shipped", dimensions=["market"], title="Toimitetut kappaleet"),
 }
 PROMPTS: list[str] = []
 
@@ -138,6 +140,56 @@ def test_meter_and_briefings(client):
     for role in ("tehtaan_johtaja", "vuoropaallikko", "tuotantotyontekija", "data_steward"):
         b = client.get(f"/api/briefing/{role}").json()
         assert b["cards"], role
+        assert all(c["key"] for c in b["cards"]), role
+        assert "deviations" in b
+    b = client.get("/api/briefing/tehtaan_johtaja").json()
+    otif = next(c for c in b["cards"] if c["key"] == "otif")
+    assert otif["target"] == 95.0 and otif["lower_is_better"] is False
+    assert otif["ask_hint"] == "Näytä toimitusvarmuus kuukausittain"
+    urgent = next(c for c in b["cards"] if c["key"] == "urgent")
+    assert urgent["target"] == 0 and urgent["lower_is_better"] is True
+    assert urgent["ask_hint"] == "Mitkä tilaukset pitää tehdä tällä viikolla?"
+
+
+def test_briefing_deviations_follow_targets(client, monkeypatch):
+    monkeypatch.setattr("app.config.CARD_TARGETS", {
+        "pairs": {"target": 10**9, "lower_is_better": False, "severity": "high"},
+        "volume": {"target": 10**9, "lower_is_better": False, "severity": "low"},
+    })
+    b = client.get("/api/briefing/tehtaan_johtaja").json()
+    targeted = {c["key"] for c in b["cards"] if c.get("target") is not None}
+    assert targeted == {"pairs", "volume"}
+    assert [d["card_key"] for d in b["deviations"]] == ["pairs", "volume"]      # high before low
+    assert b["deviations"][0]["severity"] == "high" and b["deviations"][1]["severity"] == "low"
+    assert "Tuote–markkina-pareja" in b["deviations"][0]["message"]
+    assert all("tavoite" in d["message"] for d in b["deviations"])
+
+
+def test_card_detail(client):
+    b = client.get("/api/briefing/tehtaan_johtaja").json()
+    otif = next(c for c in b["cards"] if c["key"] == "otif")
+    d = client.get("/api/briefing/tehtaan_johtaja/card/otif").json()
+    assert d["description"] and d["kpi"]["id"] == "KPI-020" and d["kpi"]["definition"]
+    assert d["chart"]["type"] == "line" and d["chart"]["labels"]
+    assert d["chart"]["datasets"][0]["data"][-1] == pytest.approx(otif["value"], abs=0.051)
+    assert d["target"] == 95.0 and d["ask_hint"] and d["source"]
+    urgent = next(c for c in b["cards"] if c["key"] == "urgent")
+    u = client.get("/api/briefing/tehtaan_johtaja/card/urgent").json()
+    assert len(u["rows"]) == urgent["value"] and u["chart"]["labels"]
+    assert all("tuote" in r and "tila" in r and "tilaa viimeistään" in r for r in u["rows"])
+    vol = client.get("/api/briefing/tehtaan_johtaja/card/volume").json()
+    assert vol["chart"]["type"] == "bar"
+    assert sum(vol["chart"]["datasets"][0]["data"]) == pytest.approx(vol["value"], rel=0.01)
+    for role in ("vuoropaallikko", "tuotantotyontekija"):
+        for c in client.get(f"/api/briefing/{role}").json()["cards"]:
+            d = client.get(f"/api/briefing/{role}/card/{c['key']}").json()
+            assert d["description"] and d["key"] == c["key"]
+    for key in ("requests", "new_charts", "handled", "certify_suggestions", "retire_suggestions"):
+        d = client.get(f"/api/briefing/data_steward/card/{key}").json()
+        assert d["description"] and "rows" in d
+    assert client.get("/api/briefing/tehtaan_johtaja/card/nope").status_code == 404
+    assert client.get("/api/briefing/data_steward/card/otif").status_code == 404
+    assert client.get("/api/briefing/x/card/otif").status_code == 404
 
 
 def test_propose_and_decide(client, monkeypatch):
@@ -196,3 +248,74 @@ def test_briefing_and_chart_agree_on_otif(client):
     card = next(c for c in b["cards"] if c["label"].startswith("OTIF"))
     a = ask(client, "Näytä toimitusvarmuus kuukausittain")
     assert round(a["chart"]["datasets"][0]["data"][-1], 1) == card["value"]
+
+
+# --------------------------------------------------------------------------- dashboards
+
+
+def _certify(client, fp):
+    p = client.post(f"/api/registry/{fp}/propose", json={"action": "certify"}).json()
+    d = client.post("/api/registry/decision", json={"proposal_id": p["proposal_id"], "approved": True})
+    assert d.status_code == 200, d.text
+    return d.json()
+
+
+def test_dashboard_certified_only_and_matching_numbers(client):
+    a = ask(client, "Nettomyynti markkinoittain")
+    assert a["decision"] == "BUILD"
+    fp = a["fingerprint"]
+    assert client.get("/api/dashboards/x").status_code == 404
+    d = client.get("/api/dashboards/tehtaan_johtaja").json()          # active -> not on the dashboard
+    assert not any(t["fingerprint"] == fp for t in d["tiles"])
+    assert client.post("/api/dashboards/tehtaan_johtaja/charts", json={"fingerprint": fp}).status_code == 400
+    assert client.post("/api/dashboards/tehtaan_johtaja/charts", json={"fingerprint": "cf-nope"}).status_code == 404
+    _certify(client, fp)
+    d = client.get("/api/dashboards/tehtaan_johtaja").json()
+    tile = next(t for t in d["tiles"] if t["fingerprint"] == fp)
+    assert tile["pinned"] is False and tile["kpi_ids"] == ["KPI-001"]
+    assert tile["chart"]["labels"] == a["chart"]["labels"]
+    assert tile["chart"]["datasets"][0]["data"] == pytest.approx(a["chart"]["datasets"][0]["data"])
+    assert tile["receipt"]["kpi"]["id"] == "KPI-001"
+    assert "KPI-001" in d["kpi_ids"]
+
+
+def test_dashboard_pin_unpin_retire(client):
+    a = ask(client, "Toimitetut kappaleet markkinoittain", role="vuoropaallikko")
+    fp = a["fingerprint"]
+    _certify(client, fp)
+    d = client.get("/api/dashboards/tuotantotyontekija").json()      # worker never used it
+    assert not any(t["fingerprint"] == fp for t in d["tiles"])
+    meta = client.get("/api/dashboards/tuotantotyontekija?tiles=false").json()
+    assert "tiles" not in meta and meta["pinned"] == []               # metadata-only view for the steward UI
+    r = client.post("/api/dashboards/tuotantotyontekija/charts", json={"fingerprint": fp})
+    assert r.status_code == 200 and r.json()["pinned"] == [fp]       # pin -> tile for a role that never used it
+    d = client.get("/api/dashboards/tuotantotyontekija").json()
+    assert d["tiles"][0]["fingerprint"] == fp and d["tiles"][0]["pinned"] is True
+    assert d["tiles"][0]["chart"]["datasets"][0]["data"] == pytest.approx(a["chart"]["datasets"][0]["data"])
+    assert client.delete("/api/dashboards/tuotantotyontekija/charts/" + fp).status_code == 200
+    d = client.get("/api/dashboards/tuotantotyontekija").json()      # unpin -> auto rule only -> gone
+    assert d["pinned"] == [] and not any(t["fingerprint"] == fp for t in d["tiles"])
+    p = client.post(f"/api/registry/{fp}/propose", json={"action": "retire"}).json()
+    client.post("/api/registry/decision", json={"proposal_id": p["proposal_id"], "approved": True})
+    d = client.get("/api/dashboards/vuoropaallikko").json()          # retired -> drops from every dashboard
+    assert not any(t["fingerprint"] == fp for t in d["tiles"])
+    events = [e["event"] for e in client.get("/api/audit").json()]
+    assert "chart_pinned" in events and "chart_unpinned" in events
+
+
+def test_dashboard_tile_error_is_isolated(client, monkeypatch):
+    a = ask(client, "Nettomyynti markkinoittain")
+    fp = a["fingerprint"]
+    _certify(client, fp)
+    orig = dashmod.compute
+
+    def boom(spec):
+        if spec.metric == "Net Sales":
+            raise RuntimeError("data error")
+        return orig(spec)
+
+    monkeypatch.setattr(dashmod, "compute", boom)
+    r = client.get("/api/dashboards/tehtaan_johtaja")
+    assert r.status_code == 200                                      # one broken tile must not break the dashboard
+    tile = next(t for t in r.json()["tiles"] if t["fingerprint"] == fp)
+    assert tile["error"].startswith("data error") and "chart" not in tile

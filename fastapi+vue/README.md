@@ -1,6 +1,6 @@
 # Käynnistysohje (Mac ja Windows)
 
-Ohjeilla sovellus käynnistyy nykyisellä koodilla. Ympäristömuuttujat ladataan `.env`-tiedostosta käsin ennen käynnistystä.
+Ohjeilla sovellus käynnistyy nykyisellä koodilla. Ympäristömuuttujat ladataan automaattisesti `.env`-tiedostosta käynnistyksen yhteydessä (python-dotenv), erillistä latausta ei tarvita.
 
 Varmista ensin, että `.env`-tiedostossa on rivi:
 
@@ -24,7 +24,6 @@ Joka käynnistyksellä:
 ```bash
 cd fastapi+vue
 source .venv/bin/activate
-set -a; source .env; set +a
 python -m uvicorn app.main:app --port 8000
 ```
 
@@ -50,14 +49,10 @@ Joka käynnistyksellä:
 ```powershell
 cd fastapi+vue
 .venv\Scripts\Activate.ps1
-Get-Content .env | ForEach-Object { if ($_ -match '^\s*([^#=][^=]*)=(.*)$') { Set-Item "env:$($matches[1].Trim())" $matches[2].Trim() } }
 python -m uvicorn app.main:app --port 8000
 ```
-
-Kolmas rivi lukee `.env`-tiedoston ja asettaa sen arvot ympäristömuuttujiksi, kuten `source .env` Macilla.
 
 ## Molemmilla
 
 - Avaa selaimessa **http://localhost:8000**.
 - Käytä aina `python -m uvicorn` eikä pelkkää `uvicorn`, muuten käynnistyy väärä Python-asennus.
-- Ympäristömuuttujat ovat voimassa vain siinä ikkunassa, jossa ne ladattiin. Uudessa ikkunassa kaikki "joka käynnistyksellä" ‑rivit ajetaan uudelleen.

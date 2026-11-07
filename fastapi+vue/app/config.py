@@ -2,6 +2,11 @@
 
 import os
 from datetime import date
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 MONGODB_URI = os.environ.get("MONGODB_URI", "")
 MONGODB_DB = os.environ.get("MONGODB_DB", "bayer_hackathon")
@@ -23,4 +28,10 @@ ROLES = {
     "vuoropaallikko": {"label": "Vuoropäällikkö", "plant": DEMO_PLANT},
     "tuotantotyontekija": {"label": "Tuotantotyöntekijä", "plant": DEMO_PLANT},
     "data_steward": {"label": "Data Steward", "plant": None},
+}
+
+# Briefing card targets, keyed by card key: breach -> deviation of `severity`.
+CARD_TARGETS = {
+    "otif": {"target": 95.0, "lower_is_better": False, "severity": "medium"},
+    "urgent": {"target": 0, "lower_is_better": True, "severity": "high"},
 }
