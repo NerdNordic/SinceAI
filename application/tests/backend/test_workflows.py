@@ -8,7 +8,7 @@ Uses the included workbook unless DATA_PACK_XLSX selects another fixture.
 import io
 import json
 import os
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import mongomock
@@ -35,13 +35,22 @@ FAKE = {
     "mitkä tilaukset pitää tehdä tällä viikolla?": ChartSpec(metric="Replenishment Reorder-By Date", dimensions=["product", "market"], filters=Filters(statuses=["STOCKOUT_RISK", "ORDER_NOW"]), chart_type="table", title="Tilattavat nyt"),
     "mikä on varaston riittävyys suomessa nyt?": ChartSpec(metric="Inventory Coverage", dimensions=[], filters=Filters(market_ids=["FI"]), intent="one_off", title="Varaston riittävyys Suomessa"),
     "mikä on budjettipoikkeama?": ChartSpec(metric="UNSUPPORTED", understood=False, clarification_question="Budjettidataa ei ole hallitussa datassa. Tarkoititko ennustepoikkeamaa?"),
+    "create a global nubeqa dashboard showing sales growth, forecast variance and market access by country.":
+        ChartSpec(metric="UNSUPPORTED", understood=False,
+                  clarification_question="Voin näyttää yhden mittarin kerrallaan. Valitse ensin: Net Sales Growth, Forecast Variance tai Market Access Coverage."),
     "myynnin kasvu markkinoittain": ChartSpec(metric="Net Sales Growth", dimensions=["market"], title="Myynnin kasvu"),
     "ennustepoikkeama tuotteittain toteumasta": ChartSpec(metric="Forecast Variance", dimensions=["product"], actuals_only=True, title="Ennustepoikkeama"),
+    "ennustepoikkeama kuukausittain markkinoittain": ChartSpec(metric="Forecast Variance", dimensions=["month", "market"],
+                                                                chart_type="line", title="Ennustepoikkeama markkinoittain"),
     # follow-up and chat
     "entä plant b?": ChartSpec(metric="On-Time In-Full", dimensions=["month"], filters=Filters(plants=["Plant-B"]), chart_type="line", title="Toimitusvarmuus kuukausittain, Plant B"),
     "mitä osaat?": ChartSpec(metric="UNSUPPORTED", mode="chat", reply="Voin näyttää tehtaan luvut ja kaaviot hallituilla määritelmillä."),
     "nettomyynti markkinoittain": ChartSpec(metric="Net Sales", dimensions=["market"], title="Nettomyynti markkinoittain"),
     "toimitetut kappaleet markkinoittain": ChartSpec(metric="Units Shipped", dimensions=["market"], title="Toimitetut kappaleet"),
+    "nettomyynti kuukausittain": ChartSpec(metric="Net Sales", dimensions=["month"], chart_type="line", title="Nettomyynti kuukausittain"),
+    "nettomyynti nubeqa saksassa kuukausittain": ChartSpec(metric="Net Sales", dimensions=["month"],
+                                                           filters=Filters(product_ids=["P-NUB"], market_ids=["DE"]),
+                                                           chart_type="line", title="Nubeqan myynti Saksassa"),
 }
 PROMPTS: list[str] = []
 
@@ -104,6 +113,83 @@ def test_otif_numbers_match_pandas(client):
     assert any("forecast_like" in w for w in a["receipt"]["warnings"])
 
 
+def test_multiline_month_by_market(client):
+    """A month x market question becomes one line per market: labels = sorted months, datasets = series."""
+    a = ask(client, "Ennustepoikkeama kuukausittain markkinoittain")
+    chart = a["chart"]
+    assert chart["type"] == "line"
+    assert chart["labels"] == sorted(set(chart["labels"])) and len(chart["labels"]) == 10   # 2026-01..2026-10
+    assert len(chart["datasets"]) == 8                                     # 14 markets in scope -> top-8 series cap
+    assert all(len(d["data"]) == len(chart["labels"]) for d in chart["datasets"])
+    assert {"month", "market", "arvo"} <= set(a["rows"][0])               # rows stay long-format
+
+    # every series and value must match a pandas reference over the same rows (Plant-A scope)
+    x = pd.read_excel(XLSX, sheet_name=None)
+    pmm, so = x["Product_Market_Monthly"], x["Supply_Operations"]
+    pa = so[so.supply_source == "Plant-A"][["product_id", "market_id"]]
+    df = pmm.merge(pa, on=["product_id", "market_id"])
+    df["month"] = pd.to_datetime(df["month"]).dt.strftime("%Y-%m")
+    ref = df.groupby(["month", "market_id"])[["net_sales_m_eur_syn", "forecast_m_eur_syn"]].sum().reset_index()
+    ref["value"] = (ref["net_sales_m_eur_syn"] - ref["forecast_m_eur_syn"]).round(2)
+    ref["label"] = ref["market_id"].map(dbmod.lookups()["markets"])
+    top8 = ref.groupby("label")["value"].mean().abs().sort_values(ascending=False).head(8).index
+    assert {d["label"] for d in chart["datasets"]} == set(top8)
+    for d in chart["datasets"]:
+        part = ref[ref["label"] == d["label"]]
+        expected = dict(zip(part["month"], part["value"]))
+        got = {m: v for m, v in zip(chart["labels"], d["data"]) if v is not None}
+        assert got == pytest.approx(expected, abs=0.011)
+
+
+def test_chart_pivots_long_format_into_series(client):
+    from backend.metrics import _chart
+
+    df = pd.DataFrame([
+        {"month": "2026-02", "market": "FI", "value": 11.7},
+        {"month": "2026-02", "market": "SE", "value": 257.7},
+        {"month": "2026-03", "market": "FI", "value": -62.2},
+        {"month": "2026-03", "market": "SE", "value": 31.8},
+        {"month": "2026-04", "market": "FI", "value": -61.6},
+        {"month": "2026-04", "market": "SE", "value": -60.1},
+    ])
+    chart = _chart(df, ["month", "market"], "value", "line", "Ennustepoikkeama")
+    assert chart["type"] == "line"
+    assert chart["labels"] == ["2026-02", "2026-03", "2026-04"]
+    by_label = {d["label"]: d["data"] for d in chart["datasets"]}
+    assert set(by_label) == {"Finland", "Sweden"}                          # lookups() maps FI/SE to names
+    assert by_label["Finland"] == [11.7, -62.2, -61.6]
+    assert by_label["Sweden"] == [257.7, 31.8, -60.1]
+
+    # a series missing a month keeps the month axis aligned with a None gap
+    sparse = df[~((df["market"] == "SE") & (df["month"] == "2026-03"))]
+    gapped = _chart(sparse, ["month", "market"], "value", "line", "Ennustepoikkeama")
+    se = next(d for d in gapped["datasets"] if d["label"] == "Sweden")
+    assert se["data"] == [257.7, None, -60.1]
+
+
+def test_spec_falls_back_to_cached_spec_when_gemini_fails(client, monkeypatch):
+    """A rehearsed question keeps working from an older cache entry when Gemini is unreachable."""
+    db = dbmod.get_db()
+    db.llm_cache.replace_one({"_id": "old-v3-key"}, {"_id": "old-v3-key", "kind": "spec",
+                                                     "question": "Ennustepoikkeama Suomessa ja Ruotsissa kuukausittain",
+                                                     "role": "tehtaan_johtaja",
+                                                     "spec": ChartSpec(metric="Forecast Variance", dimensions=["month", "market"],
+                                                                       filters=Filters(market_ids=["FI", "SE"]), chart_type="line",
+                                                                       title="Ennustepoikkeama Suomessa ja Ruotsissa").model_dump(),
+                                                     "hints": [], "model": "old-model",
+                                                     "created_at": datetime.now(timezone.utc)}, upsert=True)
+
+    def dead_gemini(prompt, language="en"):
+        raise RuntimeError("model is broken")
+
+    monkeypatch.setattr(specmod, "_call_gemini", dead_gemini)
+    spec, meta = specmod.generate_spec("Ennustepoikkeama Suomessa ja Ruotsissa kuukausittain",
+                                       "tehtaan_johtaja", [], "fi")
+    assert spec.metric == "Forecast Variance" and spec.dimensions == ["month", "market"]
+    assert spec.filters.market_ids == ["FI", "SE"]
+    assert meta["fallback"] is True
+
+
 def test_replenishment_matches_xlsx_module(client):
     a = ask(client, "Mitkä tilaukset pitää tehdä tällä viikolla?", role="vuoropaallikko")
     assert a["decision"] == "BUILD"
@@ -119,6 +205,16 @@ def test_answer_and_clarify(client):
     assert a["decision"] == "ANSWER" and len(a["rows"]) == 1
     c = ask(client, "Mikä on budjettipoikkeama?")
     assert c["decision"] == "CLARIFY" and "Budjetti" in c["reason"]
+    assert [s["question"] for s in c["suggestions"]] == ["Net Sales", "On-Time In-Full", "Units Shipped", "Inventory Coverage"]
+    assert "suggestions" not in a
+
+
+def test_clarify_suggests_the_mentioned_metrics(client):
+    q = "Create a global Nubeqa dashboard showing sales growth, forecast variance and market access by country."
+    a = ask(client, q)
+    assert a["decision"] == "CLARIFY"
+    assert [s["question"] for s in a["suggestions"]] == ["Forecast Variance", "Market Access Coverage", "Net Sales Growth"]
+    assert a["suggestions"][0]["label"] == "Ennustepoikkeama"          # localized chip label (fi)
 
 
 def test_growth_and_variance(client):
@@ -127,6 +223,42 @@ def test_growth_and_variance(client):
     v = ask(client, "Ennustepoikkeama tuotteittain toteumasta")
     assert v["receipt"]["actuals_only"] is True
     assert any("jätettiin pois" in w for w in v["receipt"]["warnings"])
+
+
+def test_forecast_share_in_charts(client):
+    mo = pd.read_excel(XLSX, sheet_name="Product_Market_Monthly")
+    mo = mo.assign(m=mo.month.dt.strftime("%Y-%m"))
+
+    a = ask(client, "Nettomyynti kuukausittain", role="data_steward")
+    dsa = a["chart"]["datasets"][0]
+    assert len(dsa["forecastShare"]) == len(dsa["data"]) == len(a["chart"]["labels"])
+    exp = (mo[mo.value_type != "actual_like_synthetic"].groupby("m").net_sales_m_eur_syn.sum()
+           / mo.groupby("m").net_sales_m_eur_syn.sum()).round(3)
+    assert dict(zip(a["chart"]["labels"], dsa["forecastShare"])) == pytest.approx(exp.to_dict(), abs=0.0011)
+    assert any(0 < s < 1 for s in dsa["forecastShare"])
+
+    b = ask(client, "Nettomyynti Nubeqa Saksassa kuukausittain", role="data_steward")
+    dsb = b["chart"]["datasets"][0]
+    one = mo[(mo.product_id == "P-NUB") & (mo.market_id == "DE")]
+    assert {r.m: 0.0 if r.value_type == "actual_like_synthetic" else 1.0 for r in one.itertuples()} \
+        == dict(zip(b["chart"]["labels"], dsb["forecastShare"]))
+
+    c = ask(client, "Nettomyynti markkinoittain", role="data_steward")
+    dsc = c["chart"]["datasets"][0]
+    fc = mo.value_type != "actual_like_synthetic"
+    by_market = (mo[fc].groupby("market_id").net_sales_m_eur_syn.sum()
+                 / mo.groupby("market_id").net_sales_m_eur_syn.sum()).round(3)
+    assert len(dsc["forecastShare"]) == len(dsc["data"]) == len(c["chart"]["labels"])
+    assert sorted(dsc["forecastShare"]) == pytest.approx(sorted(by_market), abs=0.0011)
+    assert any(0 < s < 1 for s in dsc["forecastShare"])
+
+    d = ask(client, "Ennustepoikkeama tuotteittain toteumasta", role="data_steward")
+    assert all(s == 0.0 for s in d["chart"]["datasets"][0]["forecastShare"])
+
+    card = client.get("/api/briefing/tehtaan_johtaja/card/otif").json()
+    otif_share = card["chart"]["datasets"][0]["forecastShare"]
+    assert len(otif_share) == len(card["chart"]["datasets"][0]["data"])
+    assert any(s > 0 for s in otif_share)
 
 
 def test_raw_csv(client):

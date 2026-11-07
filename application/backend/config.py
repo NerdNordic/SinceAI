@@ -10,7 +10,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 MONGODB_URI = os.environ.get("MONGODB_URI", "")
 MONGODB_DB = os.environ.get("MONGODB_DB", "bayer_hackathon")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
 N8N_WEBHOOK_URL = os.environ.get("N8N_WEBHOOK_URL", "")          # approval playbook webhook in n8n
 WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "")            # shared secret for n8n -> backend callbacks
 PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "http://localhost:8000")
