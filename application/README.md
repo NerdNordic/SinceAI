@@ -145,6 +145,7 @@ Use `/docs` for the generated request/response schemas.
 | POST | `/api/registry/{fingerprint}/propose` | Create a `certify` or `retire` proposal. |
 | POST | `/api/registry/decision` | Approve/reject a proposal; optional secret check as configured. |
 | GET | `/api/proposals` | Proposal list. |
+| GET | `/api/business-requests` | Data-pack business request intake, newest first. |
 | GET | `/api/audit` | Recent audit events. |
 | GET | `/api/health` | MongoDB access/counts and configured model; no Gemini probe. |
 

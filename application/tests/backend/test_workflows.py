@@ -383,6 +383,21 @@ def test_propose_and_decide(client, monkeypatch):
     assert any(e["event"] == "proposal_decided" for e in client.get("/api/audit").json())
 
 
+def test_business_requests_listing(client):
+    """The steward's business-requests view: the whole data-pack intake, newest first."""
+    r = client.get("/api/business-requests")
+    assert r.status_code == 200
+    reqs = r.json()
+    assert len(reqs) == 150
+    assert {"request_id", "request_date", "product_context", "market_context",
+            "request_text", "urgency", "status"} <= set(reqs[0])
+    assert all(x["urgency"] in ("urgent", "high", "normal") for x in reqs)
+    assert all(x["status"] in ("new", "triaged") for x in reqs)
+    dates = [x["request_date"] for x in reqs]
+    assert dates == sorted(dates, reverse=True)          # newest first; the UI re-ranks by urgency
+    assert "_id" not in reqs[0] and "_source" not in reqs[0]
+
+
 def test_llm_cache(client):
     calls = []
     orig = specmod._call_gemini

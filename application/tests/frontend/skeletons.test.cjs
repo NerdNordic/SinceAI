@@ -25,8 +25,8 @@ test('skeleton styling defines a themed shimmer that respects reduced motion', (
   assert.match(html, /\.skeleton \{ position: relative; overflow: hidden; border-radius: 6px; background: var\(--line\); \}/);
   assert.match(html, /@keyframes skel-shimmer \{ 100% \{ transform: translateX\(100%\); \} \}/);
   assert.match(html, /@media \(prefers-reduced-motion: reduce\) \{ \.skeleton::after \{ animation: none; \} \}/);
-  assert.match(html, /:root \{[^{}]*--skel-shine: rgba\(229,238,235,\.08\);/);
-  assert.match(html, /:root\[data-theme="light"\] \{[^{}]*--skel-shine: rgba\(255,255,255,\.8\);/);
+  assert.match(html, /:root \{[^{}]*--skel-shine: rgba\(220,228,248,\.10\);/);
+  assert.match(html, /:root\[data-theme="light"\] \{[^{}]*--skel-shine: rgba\(255,255,255,\.75\);/);
 });
 
 test('every busy state renders one announced skeleton block', () => {

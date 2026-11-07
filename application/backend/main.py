@@ -193,6 +193,12 @@ def proposals():
                                              "decided_by": 1}).sort("created_at", -1))
 
 
+@app.get("/api/business-requests")
+def business_requests():
+    """Data-pack business request intake for the Data Steward's view, newest first."""
+    return list(get_db().business_requests.find({}, {"_id": 0, "_source": 0}).sort("request_date", -1))
+
+
 @app.get("/api/audit")
 def audit():
     return engine.audit()

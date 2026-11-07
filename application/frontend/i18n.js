@@ -11,6 +11,7 @@ const ENGLISH = {
   'Esikatsele': 'Preview', 'Näytä poistetut': 'Show retired', 'Ladataan esikatselua…': 'Loading preview…',
   'Kaikki kaaviot on poistettu. Rastita “Näytä poistetut” nähdäksesi ne.': 'All charts are retired. Tick “Show retired” to see them.',
   'Kiinnitä': 'Pin', 'kiinnitetty': 'pinned', 'Poista kojelaudalta:': 'Remove from dashboard',
+  'Kiinnitykset': 'Pinned roles', 'Ei kiinnitetty': 'Not pinned',
   'Data Steward kiinnitti tämän kojelaudalle': 'Data Steward pinned this to the dashboard',
   'Ei vielä kaavioita. Kysy jotain tehdasroolina.': 'No charts yet. Ask a question using a plant role.',
   'Kojelauta': 'Dashboard', 'Sertifioidut KPI:t': 'Certified KPIs', 'kaaviota': 'charts',
@@ -18,7 +19,7 @@ const ENGLISH = {
   'Haetaan sertifioituja kaavioita…': 'Fetching certified charts…', 'Haetaan aamubriefingiä…': 'Loading morning briefing…',
   'Ei vielä sertifioituja kaavioita tälle roolille. Kysy lukuja keskustelussa ja pyydä Data Stewardia sertifioimaan ne.':
     'No certified charts for this role yet. Ask for figures in the conversation and ask a Data Steward to certify them.',
-  'Hyväksyntää odottavat': 'Proposals', 'Sertifiointi': 'Certification', 'Poisto': 'Retirement',
+  'Hyväksyntää odottavat': 'Proposals', 'Ehdotukset': 'Proposals', 'Sertifiointi': 'Certification', 'Poisto': 'Retirement',
   'Hyväksy': 'Approve', 'Hylkää': 'Reject', '(tai n8n:n kautta)': '(or via n8n)', 'Ei ehdotuksia.': 'No proposals.',
   'Audit log': 'Audit log',   'Keskustelu': 'Conversation', 'Uusi keskustelu': 'New conversation',
   'Siirry keskusteluun': 'Go to conversation',
@@ -67,6 +68,10 @@ const ENGLISH = {
   'ZERO_SHIPMENT_MONTH': 'Month with no shipments', 'VOLATILE_SHIPMENTS': 'Volatile shipments',
   'INVENTORY_SOURCE_CONFLICT': 'Conflicting inventory sources', 'LATEST_MONTH_FORECAST_LIKE': 'Latest month is forecast-like',
   'ZERO_INVENTORY': 'Zero inventory', 'air': 'Air', 'road': 'Road', 'sea': 'Sea',
+  'Liiketoimintapyynnöt': 'Business requests', 'Hallinta': 'Governance',
+  'Kiireellisyys': 'Urgency', 'Päivämäärä': 'Date', 'Pyyntö': 'Request', 'Tuote': 'Product', 'Markkina': 'Market',
+  'Kysy chatissa': 'Ask in chat', 'Hae pyyntöjä…': 'Search requests…',
+  'Ei pyyntöjä.': 'No requests.', 'Kaikki': 'All',
 };
 const FINNISH = {
   'units': 'kpl', 'weeks': 'viikkoa', 'units/week': 'kpl/vko',
@@ -98,6 +103,7 @@ const FINNISH = {
   'ZERO_SHIPMENT_MONTH': 'Kuukausi ilman toimituksia', 'VOLATILE_SHIPMENTS': 'Vaihteleva toimitusmäärä',
   'INVENTORY_SOURCE_CONFLICT': 'Ristiriitaiset varastolähteet', 'LATEST_MONTH_FORECAST_LIKE': 'Viimeisin kuukausi on ennustetyyppinen',
   'ZERO_INVENTORY': 'Tyhjä varasto', 'air': 'Lentokuljetus', 'road': 'Maantiekuljetus', 'sea': 'Merikuljetus',
+  'urgent': 'kiireellinen', 'high': 'korkea', 'normal': 'normaali', 'new': 'uusi', 'triaged': 'triagattu',
 };
 const EXAMPLES = {
   en: {
