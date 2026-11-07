@@ -1,4 +1,6 @@
 # Secrets and local configuration
+__pycache__/
+*.pyc
 .env
 .env.*
 !.env.example
