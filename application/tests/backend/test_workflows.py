@@ -15,8 +15,8 @@ import mongomock
 import pandas as pd
 import pytest
 
-ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_XLSX = (ROOT.parent / "Bayer_SinceAI2026 _1_" / "Bayer_SinceAI2026"
+ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_XLSX = (ROOT.parent / "data" / "bayer"
                 / "Bayer_Pharmaceuticals_SinceAI_2026_FINAL_Builder_Data_Pack.xlsx")
 XLSX = os.environ.get("DATA_PACK_XLSX", str(DEFAULT_XLSX))
 pytestmark = pytest.mark.skipif(not Path(XLSX).is_file(), reason="Data-pack workbook not found")
@@ -24,8 +24,8 @@ pytestmark = pytest.mark.skipif(not Path(XLSX).is_file(), reason="Data-pack work
 os.environ["TODAY"] = "2026-11-06"
 os.environ["GEMINI_API_KEY"] = ""   # no network (also blocks .env from setting it): embeddings and search fall back
 
-from app import db as dbmod, engine, spec as specmod  # noqa: E402
-from app.spec import ChartSpec, Filters  # noqa: E402
+from backend import db as dbmod, engine, spec as specmod  # noqa: E402
+from backend.spec import ChartSpec, Filters  # noqa: E402
 
 # question -> what Gemini would return
 FAKE = {
@@ -46,10 +46,10 @@ PROMPTS: list[str] = []
 
 @pytest.fixture(scope="module")
 def client():
-    import seed_mongo as seed
+    from tools import seed_mongo as seed
 
     cols = seed.load_sheets(Path(XLSX))
-    aliases = {k: v for k, v in json.loads((ROOT / "kpi_aliases.json").read_text()).items() if not k.startswith("_")}
+    aliases = {k: v for k, v in json.loads((ROOT / "config" / "kpi_aliases.json").read_text()).items() if not k.startswith("_")}
     seed.enrich_kpis(cols["kpi_catalog"], aliases)
     seed.enrich_assets(cols["analytics_assets"], cols["asset_kpi_map"], cols["kpi_catalog"], cols["workspaces"], cols["markets"])
     db = mongomock.MongoClient()["test"]
@@ -64,7 +64,7 @@ def client():
     specmod._call_gemini = fake_gemini
     from fastapi.testclient import TestClient
 
-    from app.main import app
+    from backend.main import app
     return TestClient(app)
 
 
@@ -105,8 +105,8 @@ def test_otif_numbers_match_pandas(client):
 def test_replenishment_matches_xlsx_module(client):
     a = ask(client, "Mitkä tilaukset pitää tehdä tällä viikolla?", role="vuoropaallikko")
     assert a["decision"] == "BUILD"
-    from reorder import Assumptions, compute_all, load_data_pack
-    ref = compute_all(load_data_pack(XLSX), Assumptions.load(ROOT / "assumptions.json"), today=date(2026, 11, 6))
+    from backend.replenishment import Assumptions, compute_all, load_data_pack
+    ref = compute_all(load_data_pack(XLSX), Assumptions.load(ROOT / "config" / "assumptions.json"), today=date(2026, 11, 6))
     expected = {(r["product_name"], r["market_name"]) for r in ref
                 if r["supply_source"] == "Plant-A" and r["status"] in ("STOCKOUT_RISK", "ORDER_NOW")}
     assert {(r["tuote"], r["markkina"]) for r in a["rows"]} == expected
@@ -148,7 +148,7 @@ def test_propose_and_decide(client, monkeypatch):
     fp = ask(client, "Näytä toimitusvarmuus kuukausittain")["fingerprint"]
     p = client.post(f"/api/registry/{fp}/propose", json={"action": "certify"}).json()
     assert p["status"] == "pending" and p["sent_to_n8n"] is False
-    monkeypatch.setattr("app.config.WEBHOOK_SECRET", "s3cret")
+    monkeypatch.setattr("backend.config.WEBHOOK_SECRET", "s3cret")
     assert client.post("/api/registry/decision", json={"proposal_id": p["proposal_id"], "approved": True}).status_code == 401
     d = client.post("/api/registry/decision", headers={"X-Webhook-Secret": "s3cret"},
                     json={"proposal_id": p["proposal_id"], "approved": True, "approver": "Maya Andersson"}).json()
@@ -253,7 +253,7 @@ def test_answer_language_and_cache_separation(client, monkeypatch):
 
 
 def test_metric_localization_preserves_calculations(client):
-    from app import metrics
+    from backend import metrics
 
     for name in metrics.METRICS:
         spec = ChartSpec(metric=name, dimensions=["product"], filters=Filters(plants=["Plant-A"]))
@@ -270,7 +270,7 @@ def test_metric_localization_preserves_calculations(client):
 
 
 def test_localized_fallbacks_and_empty_results(client, monkeypatch):
-    from app import metrics
+    from backend import metrics
 
     monkeypatch.setattr(engine, "write_answer", lambda *args: None)
     monkeypatch.setattr(specmod, "_kpi_hints", lambda q: [])

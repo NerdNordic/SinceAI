@@ -1,107 +1,175 @@
 # SinceAI - Build Less assistant
 
-AI-assisted, governed plant analytics for the Bayer challenge at Since AI 2026.
-The application answers business questions using canonical KPIs, reuses existing
-charts before creating new ones, and records definitions and source evidence.
-All supplied operational data is synthetic; it does not represent real Bayer performance.
+SinceAI is a local prototype for the **Bayer challenge at Since AI 2026**. It turns
+business questions into governed plant analytics, reuses charts where possible,
+and shows how the figures were calculated. All supplied operational data is
+synthetic and does not represent actual Bayer performance.
 
-## Current stack
+## What the application does
 
-- FastAPI backend and a Vue 3 / Chart.js browser interface, served by the same process.
-- MongoDB for source data, chart registry, conversations, results and audit records.
-- Google Gemini for interpreting questions and wording answers. Python computes all numbers.
-- Optional n8n workflow for certification and retirement proposals; a human approves decisions.
-- English/Finnish interface and responses; English is the default. Dark/light appearance.
-  The browser remembers both preferences. Existing chat messages retain their original text.
+- Offers plant-director, shift-supervisor, production-worker and data-steward views.
+- Shows morning briefings, inventory risks and replenishment priorities.
+- Answers questions with charts, tables, calculation receipts and raw-source CSV exports.
+- Chooses **Reuse**, **Extend**, **One-off answer**, **New chart** or **Clarify**.
+- Tracks chart ownership, usage, certification/retirement proposals and audit events.
+- Supports English/Finnish and dark/light mode. English and dark mode are the defaults;
+  the browser remembers your selections. New AI replies follow the selected language.
+  Existing conversation messages retain their original text.
 
-## Setup (Windows PowerShell)
+FastAPI serves the API and the Vue 3 / Chart.js interface in one process. MongoDB
+stores source data and application state. Gemini interprets questions and words
+answers; deterministic Python code computes the numbers. n8n governance scanning
+is optional. No npm installation or frontend build is required.
 
-Run from the repository root:
+## Which folder should I use?
 
-```powershell
-cd C:\Users\jan_k\Documents\SinceAI
-# Create the environment only if it does not already exist:
-if (-not (Test-Path -LiteralPath '.\.venv\Scripts\python.exe')) { python -m venv .venv }
-& '.\.venv\Scripts\python.exe' -m pip install -r '.\fastapi+vue\requirements.txt'
+| Folder | Purpose |
+| --- | --- |
+| [application/](application/README.md) | **Application source and working directory for Uvicorn and module-based tools.** Contains backend, frontend, configuration and tests. |
+| `.venv/` | Shared project Python environment at the repository root. |
+| [Bayer data pack](<data/bayer/README.md>) | Source workbook and challenge briefs; the workbook also supplies offline test data. |
+| [integrations/n8n/](integrations/n8n/README.md) | Optional workflow and governance setup. |
+| [docs/](docs/architecture.md) | Architecture, data-import guide and historical cleanup record. |
+
+```text
+SinceAI/
+  README.md
+  work_plan.md
+  pyproject.toml
+  application/
+    README.md
+    .env                 # Local secrets; ignored
+    .env.example
+    requirements.txt
+    requirements-dev.txt
+    backend/
+      replenishment/
+      vector_store.py
+    frontend/
+    config/
+    tools/
+    tests/
+      backend/
+      frontend/
+  data/bayer/
+  integrations/n8n/
+  docs/
+  .venv/                 # Local environment; ignored
 ```
 
-If `python` is unavailable, use an installed interpreter's full path. This checkout
-also has `C:\Users\jan_k\miniconda3\python.exe`. Environment activation is optional
-when invoking the project's Python by its full or relative path.
+## Requirements
 
-For a new configuration, copy `fastapi+vue/.env.example` to `fastapi+vue/.env` and
-fill in `MONGODB_URI`, `MONGODB_DB`, `GEMINI_API_KEY` and a Gemini model available to
-your account. The current local checkout also has a configuration in `application/.env`;
-the startup commands below use it if `fastapi+vue/.env` is absent. Both locations are
-Git-ignored. Never commit credentials. The example's fixed `TODAY` date is for demos.
+- Python with `venv` and pip. The local checkout has been verified with Python 3.13.5.
+- Access to a populated MongoDB database; Atlas vector indexes enable similarity search.
+- A Gemini API key and a generation model available to your account for new AI requests.
+- Internet access: Gemini/Atlas are external services and the browser loads Vue/Chart.js
+  from pinned CDN URLs. The app is not an offline demo.
+- Node.js only if you want to run the frontend checks.
 
-The MongoDB database must contain the source collections. See
-[data import](fastapi+vue/DATA_IMPORT.md) for first-time loading. Do not re-seed a
-working database merely to start the application.
+## First-time setup - Windows PowerShell
 
-## Start (Windows PowerShell)
-
-Paste the whole block into a fresh terminal. The absolute first path makes it work
-regardless of the terminal's current folder:
+From the repository root:
 
 ```powershell
 Set-Location -LiteralPath 'C:\Users\jan_k\Documents\SinceAI'
-$sinceaiEnv = if (Test-Path -LiteralPath '.\fastapi+vue\.env') { '.\fastapi+vue\.env' } else { '.\application\.env' }
+if (-not (Test-Path -LiteralPath '.\.venv\Scripts\python.exe')) { python -m venv .venv }
+& '.\.venv\Scripts\python.exe' -m pip install -r '.\application\requirements.txt'
+```
+
+If `python` is not on PATH, use the full path to an installed interpreter when
+creating the environment, for example `& 'C:\Users\jan_k\miniconda3\python.exe' -m venv .venv`
+on this machine. You do not need to activate the environment when using its Python directly.
+
+For a new checkout, copy `application/.env.example` to `application/.env` and replace
+the placeholders. **Do not overwrite a working `.env`.** The application has one
+local environment file; the existing configuration has been preserved.
+
+Configure `MONGODB_URI`, `MONGODB_DB`, `GEMINI_API_KEY` and `GEMINI_MODEL` as described
+in the [application configuration table](application/README.md#configuration).
+Environment files are Git-ignored. Use plain, unquoted `KEY=value` lines for the
+PowerShell loader below; it does not expand variables or execute the file.
+
+The app does **not** automatically load `.env` files. Load settings into the same
+terminal before starting Uvicorn. If the database has not been populated, follow
+[data import](docs/data-import.md) first. Importing replaces source collections;
+it is not a normal startup step.
+
+## Start - Windows PowerShell
+
+Paste this complete block. Its first command resets the working directory, so it
+also works if your terminal is already inside `application`:
+
+```powershell
+Set-Location -LiteralPath 'C:\Users\jan_k\Documents\SinceAI'
+$sinceaiEnv = '.\application\.env'
 Get-Content -LiteralPath $sinceaiEnv -ErrorAction Stop | ForEach-Object {
     if ($_ -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$') {
         Set-Item -Path "env:$($matches[1])" -Value $matches[2].Trim()
     }
 }
-Set-Location -LiteralPath '.\fastapi+vue'
-& '..\.venv\Scripts\python.exe' -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+Set-Location -LiteralPath '.\application'
+& '..\.venv\Scripts\python.exe' -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
 
-Use plain `KEY=value` lines in the environment file. These commands do not execute
-its contents as shell code. Settings must be loaded before starting Uvicorn.
+| URL | Purpose |
+| --- | --- |
+| http://localhost:8000 | Application |
+| http://localhost:8000/api/health | MongoDB connectivity, counts and configured generation model |
+| http://localhost:8000/docs | Interactive API documentation |
 
-Open **http://localhost:8000**. The health endpoint is `/api/health`; API docs are
-at `/docs`. Vue and Chart.js load from a CDN, so the UI needs Internet access.
-No npm installation or frontend build is required.
+`/api/health` does not call Gemini or verify vector-index readiness. Keep the server
+terminal open. Stop with **Ctrl+C** there before restarting. `deactivate` only exits
+the virtual environment; it does not stop another running server.
 
-Stop the server with **Ctrl+C** in the terminal running Uvicorn. `deactivate` only
-exits the virtual environment. If port 8000 is occupied, stop the earlier server
-before restarting. Restart after backend changes; refresh after frontend changes.
+Restart after backend/configuration changes. After frontend changes, use **Ctrl+F5**
+in the browser. In a new terminal, reload the environment before starting again.
+Optional activation from `application/`: `& '..\.venv\Scripts\Activate.ps1'`.
 
-On macOS/Linux, create `.venv` with `python3 -m venv .venv`, install the same
-manifest with `.venv/bin/python -m pip`, export the configured variables, and run
-`../.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000` from
-`fastapi+vue/`. Do not source an untrusted environment file as a shell script.
+For macOS/Linux setup and startup, see the [application guide](application/README.md#macos-and-linux).
 
-## Verification
+## Verify changes
 
-From the repository root:
+Run from the repository root:
 
 ```powershell
-& '.\.venv\Scripts\python.exe' -m pip install -r '.\fastapi+vue\requirements-dev.txt'
+& '.\.venv\Scripts\python.exe' -m pip install -r '.\application\requirements-dev.txt'
+$env:N8N_WEBHOOK_URL = ''
 & '.\.venv\Scripts\python.exe' -m pytest -q
-node '.\fastapi+vue\tests\frontend_language.cjs'
+node '.\application\tests\frontend\preferences.test.cjs'
 & '.\.venv\Scripts\python.exe' -m pip check
 ```
 
-The backend suite uses the included workbook, an in-memory MongoDB and fake Gemini;
-it does not seed the live database or call the LLM. Set `DATA_PACK_XLSX` to use a
-different workbook. Node is needed only for the dependency-free frontend checks.
+Use a separate test terminal; the empty `N8N_WEBHOOK_URL` prevents inherited live
+webhook settings from sending notifications during proposal tests.
+The current suite has 19 backend tests and 4 frontend checks. Backend tests load the
+included workbook into an in-memory MongoDB and replace Gemini; they do not alter
+the live database or call external APIs. `DATA_PACK_XLSX` can select another workbook.
+The frontend checks exercise JavaScript behavior with simulated browser APIs; they
+are not a visual browser test. Live search diagnostics are separate and documented
+in the [data guide](docs/data-import.md).
 
-## Repository
+## Troubleshooting
 
-| Path | Purpose |
+| Symptom | Action |
 | --- | --- |
-| `fastapi+vue/app/` | API, decision engine, governed metrics, Gemini integration and translations |
-| `fastapi+vue/app/static/` | Vue interface, Chart.js rendering and frontend translations |
-| `fastapi+vue/reorder/` | Deterministic replenishment calculations and export CLI |
-| `fastapi+vue/tests/` | Offline backend and frontend checks |
-| `fastapi+vue/seed_mongo.py` | Workbook importer and index setup |
-| `fastapi+vue/vector_store.py` | Shared embedding/search helpers |
-| `fastapi+vue/search.py`, `test_search.py` | Live vector-search diagnostics (see data import guide) |
-| `Bayer_SinceAI2026 _1_/Bayer_SinceAI2026/` | Source workbook, challenge briefs and data-pack description |
-| `n8n/` | Optional governance-scan workflow and setup instructions |
-| `application/.env` | Existing local configuration, not application source; Git-ignored |
+| `application\application` path does not exist | You changed into the folder twice. Use the complete startup block above. |
+| `-m` is not recognized, or Python shows `>>>` | Keep the Python executable and `-m uvicorn ...` on one line. Use `exit()` to leave the Python prompt. |
+| `WinError 10048` / port 8000 already in use | Open the existing app or stop its server with Ctrl+C before starting another instance. |
+| `Set MONGODB_URI`, missing API key or wrong model | Load the intended environment file in the same terminal, then restart. |
+| MongoDB authentication/selection failure | Check credentials, database name and Atlas network access for your machine. |
+| Gemini `503 UNAVAILABLE` / high demand | The provider rejected the request. Wait and retry; restarting Python does not resolve provider overload. |
+| Gemini `429` / quota exceeded | Check your account quota and request rate before retrying. |
+| Blank or stale interface | Hard-refresh and check CDN connectivity and the browser console. |
 
-See [architecture](README_ARCHITECTURE.md), [data import](fastapi+vue/DATA_IMPORT.md)
-and [n8n setup](n8n/N8N.md). Keep this prototype bound to loopback: choosing a role
-is application context, not authenticated authorization.
+## Limits and further reading
+
+Role selection is application context, **not authenticated authorization**. Some
+API routes expose or modify shared state, and the optional callback secret protects
+only the decision endpoint. Keep the prototype on `127.0.0.1`; do not treat it as a
+production deployment. AI specification failures can still fail the request after
+retries; deterministic fallbacks cover answer wording, not every provider call.
+
+- [Architecture and request flow](docs/architecture.md)
+- [Application development, configuration and API](application/README.md)
+- [Data import, search and replenishment exports](docs/data-import.md)
+- [Optional n8n governance workflow](integrations/n8n/README.md)

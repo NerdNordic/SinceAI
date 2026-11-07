@@ -1,5 +1,8 @@
 # SinceAI cleanup plan
 
+Historical record of the completed cleanup before directory restructuring. Paths
+below describe that earlier layout; see `../work_plan.md` for the current moves.
+
 Scope: retain the working FastAPI + Vue application and its current English/Finnish
 and dark/light controls. Preserve calculations, MongoDB collections, Gemini behavior,
 chart reuse, approval flows, data import and useful project diagnostics.

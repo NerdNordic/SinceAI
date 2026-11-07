@@ -246,8 +246,8 @@ _repl_cache: dict[tuple, list[dict]] = {}
 
 def replenishment_results() -> list[dict[str, Any]]:
     """Runout / reorder-by dates for every product x market, computed from MongoDB data."""
-    from reorder.data import DataPack
-    from reorder.model import Assumptions, compute_all
+    from .replenishment.data import DataPack
+    from .replenishment.model import Assumptions, compute_all
 
     db = get_db()
     key = (id(db), config.today())
@@ -264,7 +264,7 @@ def replenishment_results() -> list[dict[str, Any]]:
             kpis=pd.DataFrame(list(db.kpi_catalog.find({}, strip))),
             source_file=f"MongoDB {db.name}",
         )
-        _repl_cache[key] = compute_all(pack, Assumptions.load(ROOT / "assumptions.json"), today=config.today())
+        _repl_cache[key] = compute_all(pack, Assumptions.load(ROOT / "config" / "assumptions.json"), today=config.today())
     return _repl_cache[key]
 
 

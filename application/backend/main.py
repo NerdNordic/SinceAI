@@ -1,6 +1,6 @@
 """HTTP API + web UI.
 
-    uvicorn app.main:app --host 0.0.0.0 --port 8000
+    uvicorn backend.main:app --host 127.0.0.1 --port 8000
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from .db import get_db
 from .i18n import Language, role_label
 
 app = FastAPI(title="Build Less assistant", version="0.1.0")
-STATIC = Path(__file__).resolve().parent / "static"
+STATIC = Path(__file__).resolve().parent.parent / "frontend"
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 

@@ -1,11 +1,11 @@
-// Run with: node tests/frontend_language.cjs (no npm dependencies).
+// Run with: node tests/frontend/preferences.test.cjs (no npm dependencies).
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const {test} = require('node:test');
 
-const staticDir = path.join(__dirname, '../app/static');
+const staticDir = path.join(__dirname, '../../frontend');
 const html = fs.readFileSync(path.join(staticDir, 'index.html'), 'utf8');
 const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]);
 const translations = fs.readFileSync(path.join(staticDir, 'i18n.js'), 'utf8');

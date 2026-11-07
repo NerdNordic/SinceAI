@@ -7,8 +7,8 @@ Embeddings are added to only two collections, plus an empty chart registry:
     analytics_assets  -> description built from each report's KPIs, products and markets
     chart_registry    -> charts the bot creates; near-duplicate detection
 
-    MONGODB_URI=... GEMINI_API_KEY=... python seed_mongo.py --xlsx data_pack.xlsx
-    python seed_mongo.py --xlsx data_pack.xlsx --dry-run out/      # no Mongo, no Gemini
+    MONGODB_URI=... GEMINI_API_KEY=... python -m tools.seed_mongo --xlsx data_pack.xlsx
+    python -m tools.seed_mongo --xlsx data_pack.xlsx --dry-run out/      # no Mongo, no Gemini
 """
 
 from __future__ import annotations
@@ -27,9 +27,9 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-import vector_store as vs
+from backend import vector_store as vs
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent
 
 # sheet -> (collection, natural key used as _id or None)
 SHEETS: dict[str, tuple[str, str | None]] = {
@@ -249,7 +249,7 @@ def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--xlsx", required=True)
     ap.add_argument("--db", default=os.environ.get("MONGODB_DB", "bayer_hackathon"))
-    ap.add_argument("--aliases", default=str(HERE / "kpi_aliases.json"))
+    ap.add_argument("--aliases", default=str(HERE / "config" / "kpi_aliases.json"))
     ap.add_argument("--dry-run", metavar="DIR", help="write JSONL files instead of MongoDB; no API calls")
     ap.add_argument("--fake-embeddings", action="store_true", help="deterministic fake vectors (testing)")
     ap.add_argument("--skip-embeddings", action="store_true")
