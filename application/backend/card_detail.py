@@ -9,6 +9,7 @@ import pandas as pd
 from . import config
 from .briefing import STATUS_FI, URGENT, briefing
 from .db import get_db, lookups
+from .i18n import Language, role_label, text, transport_label
 from .metrics import ACTUAL, METRICS, replenishment_results
 
 DESCRIPTIONS = {
@@ -47,26 +48,26 @@ def _d(v) -> str:
     return pd.Timestamp(v).strftime("%d.%m.%Y") if v else "–"
 
 
-def _expedite(r: dict[str, Any]) -> str:
+def _expedite(r: dict[str, Any], language: Language) -> str:
     exp = r["expedite"]
     if exp and exp["feasible"]:
-        return f"{exp['mode']} viimeistään {_d(exp['latest_order_date'])}"
+        return text("{mode} viimeistään {date}", language, mode=transport_label(exp["mode"], language), date=_d(exp["latest_order_date"]))
     return ""
 
 
-def _repl_table(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _repl_table(rows: list[dict[str, Any]], language: Language) -> list[dict[str, Any]]:
     return [{"tuote": r["product_name"], "markkina": r["market_name"], "tila": STATUS_FI[r["status"]],
              "tilaa viimeistään": _d(r["reorder_by_recommended"]),
              "loppuu arviolta": _d(r["runout_date_p50"]),
              "päiviä tilaukseen": r["days_to_recommended_order"],
-             "kpl/vko": r["weekly_demand_units"], "nopeutus": _expedite(r)} for r in rows]
+             "kpl/vko": r["weekly_demand_units"], "nopeutus": _expedite(r, language)} for r in rows]
 
 
-def _days_chart(rows: list[dict[str, Any]]) -> dict[str, Any]:
+def _days_chart(rows: list[dict[str, Any]], language: Language) -> dict[str, Any]:
     top = rows[:10]
     return {"type": "bar",
             "labels": [f"{r['product_name']} · {r['market_id']}" for r in top],
-            "datasets": [{"label": "Päiviä suositeltuun tilauspäivään",
+            "datasets": [{"label": text("Päiviä suositeltuun tilauspäivään", language),
                           "data": [r["days_to_recommended_order"] for r in top]}]}
 
 
@@ -75,12 +76,12 @@ def _plant_rows(role: str) -> list[dict[str, Any]]:
     return [x for x in replenishment_results() if x["supply_source"] == plant and x["status"] != "NO_SHIPMENTS"]
 
 
-def _otif_detail(role: str) -> dict[str, Any]:
+def _otif_detail(role: str, language: Language) -> dict[str, Any]:
     plant = config.ROLES[role]["plant"]
     pairs = {k for k, v in lookups()["plant"].items() if v == plant}
     df = pd.DataFrame(list(get_db().product_market_monthly.find(
         {}, {"_id": 0, "product_id": 1, "market_id": 1, "month": 1, "otif_pct_syn": 1, "value_type": 1})))
-    out = {"chart": {"type": "line", "labels": [], "datasets": []}, "kpi": _otif_kpi(),
+    out = {"chart": {"type": "line", "labels": [], "datasets": []}, "kpi": _otif_kpi(language),
            "source": "product_market_monthly"}
     if not df.empty:
         df = df[[(p, m) in pairs for p, m in zip(df.product_id, df.market_id)]]
@@ -91,19 +92,20 @@ def _otif_detail(role: str) -> dict[str, Any]:
     fc = df["value_type"] != ACTUAL
     share = (fc.groupby(df["month"]).sum() / df.groupby("month").size()).reindex(g.index).fillna(0.0)
     out["chart"] = {"type": "line", "labels": g.index.tolist(),
-                    "datasets": [{"label": f"OTIF % ({plant}, keskiarvo)",
+                    "datasets": [{"label": text("OTIF % ({plant}, keskiarvo)", language, plant=plant),
                                   "data": [round(float(v), 2) for v in g],
                                   "forecastShare": [round(float(s), 3) for s in share]}]}
-    out["source"] = f"product_market_monthly · {len(df)} riviä · {df['month'].min()} – {df['month'].max()}"
+    out["source"] = text("product_market_monthly · {count} riviä · {first} – {last}", language,
+                         count=len(df), first=df["month"].min(), last=df["month"].max())
     return out
 
 
-def _otif_kpi() -> dict[str, Any]:
+def _otif_kpi(language: Language) -> dict[str, Any]:
     m = METRICS["On-Time In-Full"]
-    return {"id": m.kpi_id, "name": "On-Time In-Full", "unit": m.unit, "definition": m.definition}
+    return {"id": m.kpi_id, "name": "On-Time In-Full", "unit": m.unit, "definition": text(m.definition, language)}
 
 
-def _volume_detail(role: str) -> dict[str, Any]:
+def _volume_detail(role: str, language: Language) -> dict[str, Any]:
     rows = _plant_rows(role)
     chart: dict[str, Any] = {"type": "bar", "labels": [], "datasets": []}
     table: list[dict[str, Any]] = []
@@ -111,69 +113,73 @@ def _volume_detail(role: str) -> dict[str, Any]:
         g = pd.DataFrame([{"tuote": r["product_name"], "kpl": r["weekly_demand_units"]} for r in rows])
         s = g.groupby("tuote")["kpl"].sum().round(0).sort_values(ascending=False)
         chart = {"type": "bar", "labels": s.index.tolist(),
-                 "datasets": [{"label": "kpl/vko", "data": [int(v) for v in s]}]}
+                 "datasets": [{"label": text("kpl/vko", language), "data": [int(v) for v in s]}]}
         table = [{"tuote": t, "kpl/vko": int(v)} for t, v in s.items()]
-    return {"chart": chart, "rows": table, "source": "replenishment (viikkokysyntä tuotteittain)"}
+    return {"chart": chart, "rows": table, "source": text("replenishment (viikkokysyntä tuotteittain)", language)}
 
 
-def _pairs_detail(role: str) -> dict[str, Any]:
+def _pairs_detail(role: str, language: Language) -> dict[str, Any]:
     rows = sorted(_plant_rows(role), key=lambda r: r["days_to_recommended_order"])
-    return {"rows": _repl_table(rows), "source": "replenishment · tuote × markkina"}
+    return {"chart": _days_chart(rows, language), "rows": _repl_table(rows, language),
+            "source": text("replenishment · tuote × markkina", language)}
 
 
-def _urgent_detail(role: str) -> dict[str, Any]:
+def _urgent_detail(role: str, language: Language) -> dict[str, Any]:
     rows = [x for x in _plant_rows(role) if x["status"] in URGENT]
     rows = sorted(rows, key=lambda r: r["days_to_recommended_order"])
-    return {"chart": _days_chart(rows), "rows": _repl_table(rows),
-            "source": "replenishment · tila STOCKOUT_RISK / ORDER_NOW"}
+    return {"chart": _days_chart(rows, language), "rows": _repl_table(rows, language),
+            "source": text("replenishment · tila {statuses}", language, statuses="STOCKOUT_RISK / ORDER_NOW")}
 
 
-def _urgent14_detail(role: str) -> dict[str, Any]:
+def _urgent14_detail(role: str, language: Language) -> dict[str, Any]:
     rows = [x for x in _plant_rows(role) if x["status"] == "URGENT"]
     rows = sorted(rows, key=lambda r: r["days_to_recommended_order"])
-    return {"chart": _days_chart(rows), "rows": _repl_table(rows), "source": "replenishment · tila URGENT"}
+    return {"chart": _days_chart(rows, language), "rows": _repl_table(rows, language),
+            "source": text("replenishment · tila {statuses}", language, statuses="URGENT")}
 
 
-def _week_orders_detail(role: str) -> dict[str, Any]:
+def _week_orders_detail(role: str, language: Language) -> dict[str, Any]:
     rows = [x for x in _plant_rows(role) if x["days_to_recommended_order"] <= 7]
     rows = sorted(rows, key=lambda r: r["days_to_recommended_order"])
-    return {"chart": _days_chart(rows), "rows": _repl_table(rows),
-            "source": "replenishment · days-to-order ≤ 7 pv"}
+    return {"chart": _days_chart(rows, language), "rows": _repl_table(rows, language),
+            "source": text("replenishment · days-to-order ≤ 7 pv", language)}
 
 
-def _expedite_detail(role: str) -> dict[str, Any]:
+def _expedite_detail(role: str, language: Language) -> dict[str, Any]:
     rows = [x for x in _plant_rows(role) if x["expedite"] and x["expedite"]["feasible"]]
     rows = sorted(rows, key=lambda r: r["days_to_recommended_order"])
-    return {"rows": _repl_table(rows), "source": "replenishment · nopeutustilaus mahdollinen"}
+    return {"chart": _days_chart(rows, language), "rows": _repl_table(rows, language),
+            "source": text("replenishment · nopeutustilaus mahdollinen", language)}
 
 
-def _priority_detail(role: str) -> dict[str, Any]:
+def _priority_detail(role: str, language: Language) -> dict[str, Any]:
     rows = [x for x in _plant_rows(role) if x["status"] in URGENT or x["status"] == "URGENT"]
     rows = sorted(rows, key=lambda r: r["days_to_recommended_order"])
-    return {"chart": _days_chart(rows), "rows": _repl_table(rows),
+    return {"chart": _days_chart(rows, language), "rows": _repl_table(rows, language),
             "source": "replenishment · STOCKOUT_RISK, ORDER_NOW, URGENT"}
 
 
-def _meter_table() -> list[dict[str, Any]]:
+def _meter_table(language: Language) -> list[dict[str, Any]]:
     from .engine import DECISIONS, meter
 
     m = meter()
-    return [{"päätös": _DECISION_FI[d], "pyyntöjä": m["by_decision"][d]} for d in DECISIONS]
+    return [{"päätös": text(_DECISION_FI[d], language), "pyyntöjä": m["by_decision"][d]} for d in DECISIONS]
 
 
-def _requests_detail(role: str) -> dict[str, Any]:
+def _requests_detail(role: str, language: Language) -> dict[str, Any]:
     from .engine import meter
 
     m = meter()
-    by_role = [{"rooli": config.ROLES[r]["label"], "pyyntöjä": sum(c.values())}
+    by_role = [{"rooli": role_label(r, language), "pyyntöjä": sum(c.values())}
                for r, c in m["by_role"].items()]
     src = "request_log"
     if m["reuse_rate"] is not None:
-        src = f"request_log · {m['requests']} pyyntöä · uudelleenkäyttöaste {m['reuse_rate'] * 100:.0f} %"
-    return {"rows": _meter_table() + by_role, "source": src}
+        src = text("request_log · {count} pyyntöä · uudelleenkäyttöaste {rate} %", language,
+                   count=m["requests"], rate=f"{m['reuse_rate'] * 100:.0f}")
+    return {"rows": _meter_table(language) + by_role, "source": src}
 
 
-def _new_charts_detail(role: str) -> dict[str, Any]:
+def _new_charts_detail(role: str, language: Language) -> dict[str, Any]:
     from .engine import registry
 
     reg = registry()
@@ -182,26 +188,26 @@ def _new_charts_detail(role: str) -> dict[str, Any]:
             "source": "chart_registry"}
 
 
-def _handled_detail(role: str) -> dict[str, Any]:
-    return {"rows": _meter_table(), "source": "request_log · REUSE + EXTEND + ANSWER"}
+def _handled_detail(role: str, language: Language) -> dict[str, Any]:
+    return {"rows": _meter_table(language), "source": "request_log · REUSE + EXTEND + ANSWER"}
 
 
-def _suggestion_detail(which: str) -> dict[str, Any]:
+def _suggestion_detail(which: str, language: Language) -> dict[str, Any]:
     from .engine import registry
 
     reg = [c for c in registry() if c["suggestion"] == which]
     return {"rows": [{"kaavio": c["title"], "omistaja": c.get("owner") or "–", "käyttöjä": c.get("use_count", 0),
                       "rooleja": len(c.get("used_by_roles", [])), "tila": c["status"],
                       "viimeksi käytetty": _d(c.get("last_used_at"))} for c in reg],
-            "source": f"chart_registry · ehdotus {which}"}
+            "source": text("chart_registry · ehdotus {which}", language, which=which)}
 
 
-def _certify_detail(role: str) -> dict[str, Any]:
-    return _suggestion_detail("certify")
+def _certify_detail(role: str, language: Language) -> dict[str, Any]:
+    return _suggestion_detail("certify", language)
 
 
-def _retire_detail(role: str) -> dict[str, Any]:
-    return _suggestion_detail("retire")
+def _retire_detail(role: str, language: Language) -> dict[str, Any]:
+    return _suggestion_detail("retire", language)
 
 
 _BUILDERS = {
@@ -212,20 +218,46 @@ _BUILDERS = {
     "certify_suggestions": _certify_detail, "retire_suggestions": _retire_detail,
 }
 
+_SPARK_POINTS = {"line": 12, "bar": 6}
 
-def card_detail(role: str, key: str) -> dict[str, Any]:
+
+def _sparkline(chart: dict[str, Any]) -> dict[str, Any]:
+    """Trim a detail chart to card size: newest points for lines, most urgent bars first."""
+    n = min(_SPARK_POINTS.get(chart["type"], 6), len(chart["labels"]))
+    take = slice(-n, None) if chart["type"] == "line" else slice(0, n)
+    return {"type": chart["type"], "labels": chart["labels"][take],
+            "datasets": [{k: (v[take] if isinstance(v, list) else v) for k, v in ds.items()}
+                         for ds in chart["datasets"]]}
+
+
+def card_charts(role: str, language: Language = "en") -> dict[str, Any]:
+    """Compact chart per briefing card, rendered inline on the card itself."""
+    if role not in config.ROLES:
+        raise ValueError(role)
+    out: dict[str, Any] = {}
+    for card in briefing(role, language)["cards"]:
+        builder = _BUILDERS.get(card["key"])
+        if builder is None:
+            continue
+        chart = builder(role, language).get("chart")
+        if chart and chart.get("labels"):
+            out[card["key"]] = _sparkline(chart)
+    return out
+
+
+def card_detail(role: str, key: str, language: Language = "en") -> dict[str, Any]:
     """Modal payload for a briefing card: summary + description + drill-down data."""
     if role not in config.ROLES:
         raise ValueError(role)
-    b = briefing(role)
+    b = briefing(role, language)
     card = next((c for c in b["cards"] if c["key"] == key), None)
     if card is None:
         raise KeyError(key)
     out: dict[str, Any] = {"key": key}
     out.update({k: card.get(k) for k in ("label", "value", "unit", "tone", "target",
                                         "lower_is_better", "ask_hint")})
-    out["description"] = DESCRIPTIONS.get(key, "")
+    out["description"] = text(DESCRIPTIONS.get(key, ""), language)
     builder = _BUILDERS.get(key)
     if builder:
-        out.update(builder(role))
+        out.update(builder(role, language))
     return out

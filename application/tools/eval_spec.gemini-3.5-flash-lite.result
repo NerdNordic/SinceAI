@@ -1,0 +1,180 @@
+#.venv\Scripts\python.exe -m tools.eval_spec
+Model gemini-3.5-flash-lite, prompt v5-clarify-followup, 37 case(s), 2 pass(es), hints on
+
+Pass 1/2
+  PASS [1/37] net-sales-monthly-en (en)
+  PASS [2/37] net-sales-by-market-en (en)
+  PASS [3/37] net-sales-by-product-en (en)
+  FAIL [4/37] net-sales-nubeqa-germany-en (en) core: dimensions
+  PASS [5/37] net-sales-nubeqa-germany-fi (fi)
+  FAIL [6/37] net-sales-us-now-en (en) core: dimensions
+  PASS [7/37] net-sales-by-plant-en (en)
+  PASS [8/37] growth-by-market-en (en)
+  PASS [9/37] growth-monthly-en (en)
+  PASS [10/37] units-by-market-en (en)
+  PASS [11/37] units-xarelto-monthly-en (en)
+  PASS [12/37] inv-cov-by-product-en (en) extras: chart_type, intent
+  FAIL [13/37] inv-cov-sweden-now-en (en) core: dimensions
+  FAIL [14/37] inv-cov-finland-fi (fi) core: dimensions
+  PASS [15/37] otif-monthly-en (en)
+  PASS [16/37] otif-trend-paraphrase-en (en)
+  PASS [17/37] otif-plant-b-en (en)
+  PASS [18/37] otif-monthly-fi (fi)
+  PASS [19/37] fc-var-month-by-market-en (en)
+  PASS [20/37] fc-var-actuals-by-product-en (en)
+  PASS [21/37] fc-var-fi-tuotteittain (fi) extras: actuals_only
+  PASS [22/37] market-access-by-market-en (en)
+  FAIL [23/37] market-access-france-now-en (en) core: dimensions
+  PASS [24/37] fc-acc-by-product-en (en)
+  PASS [25/37] repl-this-week-fi (fi) extras: intent
+  FAIL [26/37] repl-order-now-en (en) core: dimensions, filters.statuses extras: intent
+  FAIL [27/37] repl-two-weeks-en (en) core: dimensions
+  PASS [28/37] repl-eylea-by-market-en (en)
+  PASS [29/37] clarify-budget-fi (fi)
+  PASS [30/37] clarify-budget-en (en)
+  FAIL [31/37] clarify-multimetric-en (en) core: dimensions, filters.product_ids
+  PASS [32/37] clarify-headcount-en (en)
+  PASS [33/37] chat-what-can-you-do-en (en)
+  PASS [34/37] chat-what-can-you-do-fi (fi)
+  PASS [35/37] followup-kerendia-en (en)
+  PASS [36/37] followup-sweden-fi (fi)
+  PASS [37/37] followup-plant-c-en (en)
+
+Pass 2/2
+  PASS [1/37] net-sales-monthly-en (en)
+  PASS [2/37] net-sales-by-market-en (en)
+  PASS [3/37] net-sales-by-product-en (en)
+  PASS [4/37] net-sales-nubeqa-germany-en (en)
+  PASS [5/37] net-sales-nubeqa-germany-fi (fi)
+  FAIL [6/37] net-sales-us-now-en (en) core: dimensions
+  PASS [7/37] net-sales-by-plant-en (en)
+  PASS [8/37] growth-by-market-en (en)
+  PASS [9/37] growth-monthly-en (en)
+  PASS [10/37] units-by-market-en (en)
+  PASS [11/37] units-xarelto-monthly-en (en)
+  PASS [12/37] inv-cov-by-product-en (en) extras: chart_type, intent
+  FAIL [13/37] inv-cov-sweden-now-en (en) core: dimensions
+  FAIL [14/37] inv-cov-finland-fi (fi) core: dimensions
+  PASS [15/37] otif-monthly-en (en)
+  PASS [16/37] otif-trend-paraphrase-en (en)
+  PASS [17/37] otif-plant-b-en (en)
+  PASS [18/37] otif-monthly-fi (fi)
+  PASS [19/37] fc-var-month-by-market-en (en)
+  PASS [20/37] fc-var-actuals-by-product-en (en)
+  PASS [21/37] fc-var-fi-tuotteittain (fi) extras: actuals_only
+  PASS [22/37] market-access-by-market-en (en)
+  FAIL [23/37] market-access-france-now-en (en) core: dimensions
+  PASS [24/37] fc-acc-by-product-en (en)
+  PASS [25/37] repl-this-week-fi (fi) extras: intent
+  FAIL [26/37] repl-order-now-en (en) core: dimensions extras: intent
+  PASS [27/37] repl-two-weeks-en (en)
+  PASS [28/37] repl-eylea-by-market-en (en)
+  PASS [29/37] clarify-budget-fi (fi)
+  PASS [30/37] clarify-budget-en (en)
+  PASS [31/37] clarify-multimetric-en (en)
+  PASS [32/37] clarify-headcount-en (en)
+  PASS [33/37] chat-what-can-you-do-en (en)
+  PASS [34/37] chat-what-can-you-do-fi (fi)
+  PASS [35/37] followup-kerendia-en (en)
+  PASS [36/37] followup-sweden-fi (fi)
+  PASS [37/37] followup-plant-c-en (en)
+
+Mismatch details
+  net-sales-nubeqa-germany-en (pass 1)
+    dimensions: expected ['month'] got ['market', 'month']
+  net-sales-us-now-en (pass 1)
+    dimensions: expected [] got ['month']
+  inv-cov-by-product-en (pass 1)
+    chart_type: expected 'bar' got 'table'
+    intent: expected 'recurring' got 'one_off'
+  inv-cov-sweden-now-en (pass 1)
+    dimensions: expected [] got ['market']
+  inv-cov-finland-fi (pass 1)
+    dimensions: expected [] got ['product']
+  fc-var-fi-tuotteittain (pass 1)
+    actuals_only: expected True got False
+  market-access-france-now-en (pass 1)
+    dimensions: expected [] got ['market']
+  repl-this-week-fi (pass 1)
+    intent: expected 'recurring' got 'one_off'
+  repl-order-now-en (pass 1)
+    dimensions: expected ['market', 'product'] got []
+    filters.statuses: expected ['ORDER_NOW', 'STOCKOUT_RISK'] got []
+    intent: expected 'recurring' got 'one_off'
+  repl-two-weeks-en (pass 1)
+    dimensions: expected ['market', 'product'] got ['product']
+  clarify-multimetric-en (pass 1)
+    dimensions: expected [] got ['market']
+    filters.product_ids: expected [] got ['P-NUB']
+  net-sales-us-now-en (pass 2)
+    dimensions: expected [] got ['month']
+  inv-cov-by-product-en (pass 2)
+    chart_type: expected 'bar' got 'table'
+    intent: expected 'recurring' got 'one_off'
+  inv-cov-sweden-now-en (pass 2)
+    dimensions: expected [] got ['market']
+  inv-cov-finland-fi (pass 2)
+    dimensions: expected [] got ['market']
+  fc-var-fi-tuotteittain (pass 2)
+    actuals_only: expected True got False
+  market-access-france-now-en (pass 2)
+    dimensions: expected [] got ['market']
+  repl-this-week-fi (pass 2)
+    intent: expected 'recurring' got 'one_off'
+  repl-order-now-en (pass 2)
+    dimensions: expected ['market', 'product'] got []
+    intent: expected 'recurring' got 'one_off'
+  net-sales-nubeqa-germany-en: not reproducible (pass 1 vs pass 2)
+    dimensions: ['market', 'month'] -> ['month']
+  net-sales-us-now-en: not reproducible (pass 1 vs pass 2)
+    chart_type: 'line' -> 'bar'
+    actuals_only: True -> False
+  units-xarelto-monthly-en: not reproducible (pass 1 vs pass 2)
+    actuals_only: False -> True
+  inv-cov-sweden-now-en: not reproducible (pass 1 vs pass 2)
+    actuals_only: True -> False
+  inv-cov-finland-fi: not reproducible (pass 1 vs pass 2)
+    dimensions: ['product'] -> ['market']
+    actuals_only: False -> True
+  otif-trend-paraphrase-en: not reproducible (pass 1 vs pass 2)
+    actuals_only: True -> False
+  repl-order-now-en: not reproducible (pass 1 vs pass 2)
+    filters: {'product_ids': [], 'market_ids': [], 'plants': ['Plant-A'], 'statuses': []} -> {'product_ids': [], 'market_ids': [], 'plants': ['Plant-A'], 'statuses': ['ORDER_NOW', 'STOCKOUT_RISK']}
+  repl-two-weeks-en: not reproducible (pass 1 vs pass 2)
+    dimensions: ['product'] -> ['market', 'product']
+  clarify-budget-fi: not reproducible (pass 1 vs pass 2)
+    mode: 'chat' -> 'data'
+    intent: 'recurring' -> 'one_off'
+  clarify-multimetric-en: not reproducible (pass 1 vs pass 2)
+    dimensions: ['market'] -> []
+    filters: {'product_ids': ['P-NUB'], 'market_ids': [], 'plants': ['Plant-A'], 'statuses': []} -> {'product_ids': [], 'market_ids': [], 'plants': ['Plant-A'], 'statuses': []}
+
+Summary
+Core accuracy (metric + dimensions + filters):
+  pass 1: 29/37 (78.4%)
+  pass 2: 32/37 (86.5%)
+  metric: 37/37 (100.0%) (pass 1)
+  dimensions: 29/37 (78.4%) (pass 1)
+  filters.product_ids: 36/37 (97.3%) (pass 1)
+  filters.market_ids: 37/37 (100.0%) (pass 1)
+  filters.plants: 37/37 (100.0%) (pass 1)
+  filters.statuses: 36/37 (97.3%) (pass 1)
+  filters (all four): 35/37 (94.6%) (pass 1)
+Extras: 33/37 (89.2%) of cases with extras (pass 1)
+Reproducibility (semantic fields): 27/37 (73.0%) between pass 1 and pass 2
+  titles differed on 11 case(s) (informational)
+By language (pass 1 core): en 22/29 (75.9%)
+By language (pass 1 core): fi 7/8 (87.5%)
+By metric (pass 1 core):
+  Demand Forecast Accuracy: 1/1
+  Forecast Variance: 3/3
+  Inventory Coverage: 2/4
+  Market Access Coverage: 1/2
+  Net Sales: 6/8
+  Net Sales Growth: 2/2
+  On-Time In-Full: 5/5
+  Replenishment Reorder-By Date: 2/4
+  UNSUPPORTED: 5/6
+  Units Shipped: 2/2
+Hints: KPI hints found for 37/37 questions
+Runtime: 385 s, 74 generate calls (+ 74 embed calls)

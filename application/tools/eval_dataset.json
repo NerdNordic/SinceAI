@@ -1,0 +1,519 @@
+{
+  "_comment": "Evaluation set for tools.eval_spec: question -> ChartSpec accuracy against real Gemini. Conventions: (1) 'expected' values are post-sanitize (backend.spec._sanitize): factory roles default to their plant (Plant-A via DEMO_PLANT) when the question names none, unknown filter ids are dropped, statuses are cleared unless the metric is Replenishment Reorder-By Date, Demand Forecast Accuracy loses the 'month' dimension, dimensions are deduplicated and capped at 2. (2) 'dimensions' and each filters list are compared as sets. (3) Core fields are metric + dimensions + filters; optional extras are chart_type, intent, actuals_only, mode, understood. (4) 'history' entries follow backend.spec._history_text: q, spec, decision, title.",
+  "cases": [
+    {
+      "id": "net-sales-monthly-en",
+      "question": "Show net sales month over month",
+      "language": "en",
+      "role": "tehtaan_johtaja",
+      "expected": {
+        "metric": "Net Sales",
+        "dimensions": ["month"],
+        "filters": {"product_ids": [], "market_ids": [], "plants": ["Plant-A"], "statuses": []},
+        "chart_type": "line",
+        "intent": "recurring"
+      }
+    },
+    {
+      "id": "net-sales-by-market-en",
+      "question": "What is our revenue by market?",
+      "language": "en",
+      "role": "tehtaan_johtaja",
+      "expected": {
+        "metric": "Net Sales",
+        "dimensions": ["market"],
+        "filters": {"product_ids": [], "market_ids": [], "plants": ["Plant-A"], "statuses": []},
+        "chart_type": "bar",
+        "intent": "recurring"
+      }
+    },
+    {
+      "id": "net-sales-by-product-en",
+      "question": "Break down net sales by product",
+      "language": "en",
+      "role": "tehtaan_johtaja",
+      "expected": {
+        "metric": "Net Sales",
+        "dimensions": ["product"],
+        "filters": {"product_ids": [], "market_ids": [], "plants": ["Plant-A"], "statuses": []},
+        "chart_type": "bar",
+        "intent": "recurring"
+      }
+    },
+    {
+      "id": "net-sales-nubeqa-germany-en",
+      "question": "Show Nubeqa net sales in Germany by month",
+      "language": "en",
+      "role": "data_steward",
+      "expected": {
+        "metric": "Net Sales",
+        "dimensions": ["month"],
+        "filters": {"product_ids": ["P-NUB"], "market_ids": ["DE"], "plants": [], "statuses": []},
+        "chart_type": "line",
+        "intent": "recurring"
+      }
+    },
+    {
+      "id": "net-sales-nubeqa-germany-fi",
+      "question": "Nubeqan myynti Saksassa kuukausittain",
+      "language": "fi",
+      "role": "data_steward",
+      "expected": {
+        "metric": "Net Sales",
+        "dimensions": ["month"],
+        "filters": {"product_ids": ["P-NUB"], "market_ids": ["DE"], "plants": [], "statuses": []},
+        "chart_type": "line",
+        "intent": "recurring"
+      }
+    },
+    {
+      "id": "net-sales-us-now-en",
+      "question": "What is our revenue in the US right now?",
+      "language": "en",
+      "role": "data_steward",
+      "expected": {
+        "metric": "Net Sales",
+        "dimensions": [],
+        "filters": {"product_ids": [], "market_ids": ["US"], "plants": [], "statuses": []},
+        "intent": "one_off"
+      }
+    },
+    {
+      "id": "net-sales-by-plant-en",
+      "question": "Show net sales by plant",
+      "language": "en",
+      "role": "data_steward",
+      "expected": {
+        "metric": "Net Sales",
+        "dimensions": ["plant"],
+        "filters": {"product_ids": [], "market_ids": [], "plants": [], "statuses": []},
+        "chart_type": "bar",
+        "intent": "recurring"
+      }
+    },
+    {
+      "id": "growth-by-market-en",
+      "question": "Show sales growth by market",
+      "language": "en",
+      "role": "tehtaan_johtaja",
+      "expected": {
+        "metric": "Net Sales Growth",
+        "dimensions": ["market"],
+        "filters": {"product_ids": [], "market_ids": [], "plants": ["Plant-A"], "statuses": []},
+        "chart_type": "bar",
+        "intent": "recurring"
+      }
+    },
+    {
+      "id": "growth-monthly-en",
+      "question": "How has revenue growth developed over the months?",
+      "language": "en",
+      "role": "tehtaan_johtaja",
+      "expected": {
+        "metric": "Net Sales Growth",
+        "dimensions": ["month"],
+        "filters": {"product_ids": [], "market_ids": [], "plants": ["Plant-A"], "statuses": []},
+        "chart_type": "line",
+        "intent": "recurring"
+      }
+    },
+    {
+      "id": "units-by-market-en",
+      "question": "Units shipped per market",
+      "language": "en",
+      "role": "tehtaan_johtaja",
+      "expected": {
+        "metric": "Units Shipped",
+        "dimensions": ["market"],
+        "filters": {"product_ids": [], "market_ids": [], "plants": ["Plant-A"], "statuses": []},
+        "chart_type": "bar",
+        "intent": "recurring"
+      }
+    },
+    {
+      "id": "units-xarelto-monthly-en",
+      "question": "How many units of Xarelto have we shipped by month?",
+      "language": "en",
+      "role": "data_steward",
+      "expected": {
+        "metric": "Units Shipped",
+        "dimensions": ["month"],
+        "filters": {"product_ids": ["P-XAR"], "market_ids": [], "plants": [], "statuses": []},
+        "chart_type": "line",
+        "intent": "recurring"
+      }
+    },
+    {
+      "id": "inv-cov-by-product-en",
+      "question": "How many weeks of stock cover do we have by product?",
+      "language": "en",
+      "role": "tehtaan_johtaja",
+      "expected": {
+        "metric": "Inventory Coverage",
+        "dimensions": ["product"],
+        "filters": {"product_ids": [], "market_ids": [], "plants": ["Plant-A"], "statuses": []},
+        "chart_type": "bar",
+        "intent": "recurring"
+      }
+    },
+    {
+      "id": "inv-cov-sweden-now-en",
+      "question": "What is our inventory coverage in Sweden right now?",
+      "language": "en",
+      "role": "tehtaan_johtaja",
+      "expected": {
+        "metric": "Inventory Coverage",
+        "dimensions": [],
+        "filters": {"product_ids": [], "market_ids": ["SE"], "plants": ["Plant-A"], "statuses": []},
+        "intent": "one_off"
+      }
+    },
+    {
+      "id": "inv-cov-finland-fi",
+      "question": "Mikä on varaston riittävyys Suomessa nyt?",
+      "language": "fi",
+      "role": "data_steward",
+      "expected": {
+        "metric": "Inventory Coverage",
+        "dimensions": [],
+        "filters": {"product_ids": [], "market_ids": ["FI"], "plants": [], "statuses": []},
+        "intent": "one_off"
+      }
+    },
+    {
+      "id": "otif-monthly-en",
+      "question": "Show monthly delivery reliability",
+      "language": "en",
+      "role": "tehtaan_johtaja",
+      "expected": {
+        "metric": "On-Time In-Full",
+        "dimensions": ["month"],
+        "filters": {"product_ids": [], "market_ids": [], "plants": ["Plant-A"], "statuses": []},
+        "chart_type": "line",
+        "intent": "recurring"
+      }
+    },
+    {
+      "id": "otif-trend-paraphrase-en",
+      "question": "How has our on-time in-full performance trended over the months?",
+      "language": "en",
+      "role": "tehtaan_johtaja",
+      "expected": {
+        "metric": "On-Time In-Full",
+        "dimensions": ["month"],
+        "filters": {"product_ids": [], "market_ids": [], "plants": ["Plant-A"], "statuses": []},
+        "chart_type": "line",
+        "intent": "recurring"
+      }
+    },
+    {
+      "id": "otif-plant-b-en",
+      "question": "Delivery reliability by month for Plant B",
+      "language": "en",
+      "role": "tehtaan_johtaja",
+      "expected": {
+        "metric": "On-Time In-Full",
+        "dimensions": ["month"],
+        "filters": {"product_ids": [], "market_ids": [], "plants": ["Plant-B"], "statuses": []},
+        "chart_type": "line",
+        "intent": "recurring"
+      }
+    },
+    {
+      "id": "otif-monthly-fi",
+      "question": "Näytä toimitusvarmuus kuukausittain",
+      "language": "fi",
+      "role": "tehtaan_johtaja",
+      "expected": {
+        "metric": "On-Time In-Full",
+        "dimensions": ["month"],
+        "filters": {"product_ids": [], "market_ids": [], "plants": ["Plant-A"], "statuses": []},
+        "chart_type": "line",
+        "intent": "recurring"
+      }
+    },
+    {
+      "id": "fc-var-month-by-market-en",
+      "question": "Forecast variance monthly by market",
+      "language": "en",
+      "role": "tehtaan_johtaja",
+      "expected": {
+        "metric": "Forecast Variance",
+        "dimensions": ["month", "market"],
+        "filters": {"product_ids": [], "market_ids": [], "plants": ["Plant-A"], "statuses": []},
+        "chart_type": "line",
+        "intent": "recurring"
+      }
+    },
+    {
+      "id": "fc-var-actuals-by-product-en",
+      "question": "Forecast variance by product, actuals only",
+      "language": "en",
+      "role": "data_steward",
+      "expected": {
+        "metric": "Forecast Variance",
+        "dimensions": ["product"],
+        "filters": {"product_ids": [], "market_ids": [], "plants": [], "statuses": []},
+        "chart_type": "bar",
+        "intent": "recurring",
+        "actuals_only": true
+      }
+    },
+    {
+      "id": "fc-var-fi-tuotteittain",
+      "question": "Ennustepoikkeama tuotteittain toteumasta",
+      "language": "fi",
+      "role": "tehtaan_johtaja",
+      "expected": {
+        "metric": "Forecast Variance",
+        "dimensions": ["product"],
+        "filters": {"product_ids": [], "market_ids": [], "plants": ["Plant-A"], "statuses": []},
+        "chart_type": "bar",
+        "intent": "recurring",
+        "actuals_only": true
+      }
+    },
+    {
+      "id": "market-access-by-market-en",
+      "question": "How does market access coverage vary by market?",
+      "language": "en",
+      "role": "tehtaan_johtaja",
+      "expected": {
+        "metric": "Market Access Coverage",
+        "dimensions": ["market"],
+        "filters": {"product_ids": [], "market_ids": [], "plants": ["Plant-A"], "statuses": []},
+        "chart_type": "bar",
+        "intent": "recurring"
+      }
+    },
+    {
+      "id": "market-access-france-now-en",
+      "question": "What is our patient access coverage in France right now?",
+      "language": "en",
+      "role": "data_steward",
+      "expected": {
+        "metric": "Market Access Coverage",
+        "dimensions": [],
+        "filters": {"product_ids": [], "market_ids": ["FR"], "plants": [], "statuses": []},
+        "intent": "one_off"
+      }
+    },
+    {
+      "id": "fc-acc-by-product-en",
+      "question": "Show demand forecast accuracy by product",
+      "language": "en",
+      "role": "tehtaan_johtaja",
+      "expected": {
+        "metric": "Demand Forecast Accuracy",
+        "dimensions": ["product"],
+        "filters": {"product_ids": [], "market_ids": [], "plants": ["Plant-A"], "statuses": []},
+        "chart_type": "bar",
+        "intent": "recurring"
+      }
+    },
+    {
+      "id": "repl-this-week-fi",
+      "question": "Mitkä tilaukset pitää tehdä tällä viikolla?",
+      "language": "fi",
+      "role": "vuoropaallikko",
+      "expected": {
+        "metric": "Replenishment Reorder-By Date",
+        "dimensions": ["product", "market"],
+        "filters": {"product_ids": [], "market_ids": [], "plants": ["Plant-A"], "statuses": ["STOCKOUT_RISK", "ORDER_NOW"]},
+        "chart_type": "table",
+        "intent": "recurring"
+      }
+    },
+    {
+      "id": "repl-order-now-en",
+      "question": "What should we order right now?",
+      "language": "en",
+      "role": "tehtaan_johtaja",
+      "expected": {
+        "metric": "Replenishment Reorder-By Date",
+        "dimensions": ["product", "market"],
+        "filters": {"product_ids": [], "market_ids": [], "plants": ["Plant-A"], "statuses": ["STOCKOUT_RISK", "ORDER_NOW"]},
+        "chart_type": "table",
+        "intent": "recurring"
+      }
+    },
+    {
+      "id": "repl-two-weeks-en",
+      "question": "What will run out of stock in the next two weeks?",
+      "language": "en",
+      "role": "tehtaan_johtaja",
+      "expected": {
+        "metric": "Replenishment Reorder-By Date",
+        "dimensions": ["product", "market"],
+        "filters": {"product_ids": [], "market_ids": [], "plants": ["Plant-A"], "statuses": ["STOCKOUT_RISK", "ORDER_NOW", "URGENT"]},
+        "chart_type": "table",
+        "intent": "recurring"
+      }
+    },
+    {
+      "id": "repl-eylea-by-market-en",
+      "question": "When will Eylea run out of stock by market?",
+      "language": "en",
+      "role": "data_steward",
+      "expected": {
+        "metric": "Replenishment Reorder-By Date",
+        "dimensions": ["market"],
+        "filters": {"product_ids": ["P-EYL"], "market_ids": [], "plants": [], "statuses": []},
+        "chart_type": "table",
+        "intent": "recurring"
+      }
+    },
+    {
+      "id": "clarify-budget-fi",
+      "question": "Mikä on budjettipoikkeama?",
+      "language": "fi",
+      "role": "data_steward",
+      "expected": {
+        "metric": "UNSUPPORTED",
+        "dimensions": [],
+        "filters": {"product_ids": [], "market_ids": [], "plants": [], "statuses": []},
+        "understood": false
+      }
+    },
+    {
+      "id": "clarify-budget-en",
+      "question": "What is our budget variance?",
+      "language": "en",
+      "role": "data_steward",
+      "expected": {
+        "metric": "UNSUPPORTED",
+        "dimensions": [],
+        "filters": {"product_ids": [], "market_ids": [], "plants": [], "statuses": []},
+        "understood": false
+      }
+    },
+    {
+      "id": "clarify-multimetric-en",
+      "question": "Create a global Nubeqa dashboard showing sales growth, forecast variance and market access by country.",
+      "language": "en",
+      "role": "tehtaan_johtaja",
+      "expected": {
+        "metric": "UNSUPPORTED",
+        "dimensions": [],
+        "filters": {"product_ids": [], "market_ids": [], "plants": ["Plant-A"], "statuses": []},
+        "understood": false
+      }
+    },
+    {
+      "id": "clarify-headcount-en",
+      "question": "How many employees does the plant have?",
+      "language": "en",
+      "role": "data_steward",
+      "expected": {
+        "metric": "UNSUPPORTED",
+        "dimensions": [],
+        "filters": {"product_ids": [], "market_ids": [], "plants": [], "statuses": []},
+        "understood": false
+      }
+    },
+    {
+      "id": "chat-what-can-you-do-en",
+      "question": "What can you do?",
+      "language": "en",
+      "role": "data_steward",
+      "expected": {
+        "metric": "UNSUPPORTED",
+        "dimensions": [],
+        "filters": {"product_ids": [], "market_ids": [], "plants": [], "statuses": []},
+        "mode": "chat"
+      }
+    },
+    {
+      "id": "chat-what-can-you-do-fi",
+      "question": "Mitä osaat?",
+      "language": "fi",
+      "role": "tehtaan_johtaja",
+      "expected": {
+        "metric": "UNSUPPORTED",
+        "dimensions": [],
+        "filters": {"product_ids": [], "market_ids": [], "plants": ["Plant-A"], "statuses": []},
+        "mode": "chat"
+      }
+    },
+    {
+      "id": "followup-kerendia-en",
+      "question": "What about Kerendia?",
+      "language": "en",
+      "role": "data_steward",
+      "history": [
+        {
+          "q": "Show Nubeqa net sales in Germany by month",
+          "decision": "BUILD",
+          "title": "Nubeqa net sales in Germany",
+          "spec": {
+            "metric": "Net Sales",
+            "dimensions": ["month"],
+            "filters": {"product_ids": ["P-NUB"], "market_ids": ["DE"], "plants": [], "statuses": []},
+            "chart_type": "line",
+            "intent": "recurring"
+          }
+        }
+      ],
+      "expected": {
+        "metric": "Net Sales",
+        "dimensions": ["month"],
+        "filters": {"product_ids": ["P-KER"], "market_ids": ["DE"], "plants": [], "statuses": []},
+        "chart_type": "line",
+        "intent": "recurring"
+      }
+    },
+    {
+      "id": "followup-sweden-fi",
+      "question": "Entä Ruotsissa?",
+      "language": "fi",
+      "role": "data_steward",
+      "history": [
+        {
+          "q": "Mikä on varaston riittävyys Suomessa nyt?",
+          "decision": "ANSWER",
+          "title": "Varaston riittävyys Suomessa",
+          "spec": {
+            "metric": "Inventory Coverage",
+            "dimensions": [],
+            "filters": {"product_ids": [], "market_ids": ["FI"], "plants": [], "statuses": []},
+            "chart_type": "bar",
+            "intent": "one_off"
+          }
+        }
+      ],
+      "expected": {
+        "metric": "Inventory Coverage",
+        "dimensions": [],
+        "filters": {"product_ids": [], "market_ids": ["SE"], "plants": [], "statuses": []},
+        "intent": "one_off"
+      }
+    },
+    {
+      "id": "followup-plant-c-en",
+      "question": "Show the same for Plant C",
+      "language": "en",
+      "role": "tehtaan_johtaja",
+      "history": [
+        {
+          "q": "Show monthly delivery reliability",
+          "decision": "BUILD",
+          "title": "Monthly delivery reliability",
+          "spec": {
+            "metric": "On-Time In-Full",
+            "dimensions": ["month"],
+            "filters": {"product_ids": [], "market_ids": [], "plants": ["Plant-A"], "statuses": []},
+            "chart_type": "line",
+            "intent": "recurring"
+          }
+        }
+      ],
+      "expected": {
+        "metric": "On-Time In-Full",
+        "dimensions": ["month"],
+        "filters": {"product_ids": [], "market_ids": [], "plants": ["Plant-C"], "statuses": []},
+        "chart_type": "line",
+        "intent": "recurring"
+      }
+    }
+  ]
+}

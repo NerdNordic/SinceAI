@@ -2,8 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Build Less assistant</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- <link rel="icon" type="image/webp" href="/static/favicon-teal-check.webp"> -->
+    <link rel="icon" type="image/webp" href="/static/favicon-bars.webp">
+    <title>Build Less assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,300;0,6..12,400;0,6..12,600;0,6..12,700;1,6..12,400&display=swap" rel="stylesheet">
 <script>
 // Apply the saved theme before the page paints; storage may be blocked.
 try {
@@ -12,50 +17,95 @@ try {
 } catch {}
 </script>
 <script src="/static/i18n.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/vue@3.4.38/dist/vue.global.prod.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js"></script>
+<script src="/static/vendor/vue.global.prod.js"></script>
+<script src="/static/vendor/chart.umd.js"></script>
 <style>
   :root {
+    /* Clean and Energetic — dark theme (#5680E9 / #84CEEB / #5AB9EA / #C1C8E4 / #8860D0) */
     color-scheme: dark;
-    --bg: #111817; --panel: #1a2422; --ink: #e5eeeb; --muted: #a5b8b1; --line: #3b5048;
-    --accent: #73d9b4; --accent-soft: #203c32; --warn: #f0c078; --warn-soft: #3d3020;
-    --crit: #ffaaa2; --crit-soft: #422824; --info: #9cc5ff; --info-soft: #23344d;
-    --forecast: #f0c078;
-    --on-accent: #10271e;
-    --chart-palette: #73d9b4, #9cc5ff, #f0c078, #c6a5ed, #ffaaa2, #b9d982, #a5b8b1, #f49bc4;
+    --bg: #0d1226;
+    --panel: #161e3a;
+    --ink: #dce4f8;
+    --muted: #8892b4;
+    --line: #2a3560;
+    --accent: #5680e9;
+    --accent-soft: #131d4a;
+    --warn: #84ceeb;
+    --warn-soft: #1c2c50;
+    --crit: #e05a7a;
+    --crit-soft: #2a0d1a;
+    --info: #8860d0;
+    --info-soft: #1a1038;
+    --forecast: #5ab9ea;
+    --on-accent: #ffffff;
+    --header-bg: #161e3a;
+    --header-ink: #dce4f8;
+    --header-line: #2a3560;
+    --chart-palette: #5680e9, #84ceeb, #5ab9ea, #c1c8e4, #8860d0, #3d60c8, #8892b4, #a0c0f0;
+    --skel-shine: rgba(220,228,248,.10);
   }
   :root[data-theme="light"] {
+    /* Clean and Energetic — light variant */
     color-scheme: light;
-    --bg: #f6f7f4; --panel: #ffffff; --ink: #1d2320; --muted: #5f6b65; --line: #dfe3dd;
-    --accent: #0f6e56; --accent-soft: #e3f1ec; --warn: #895000; --warn-soft: #fbf0df;
-    --crit: #b3261e; --crit-soft: #fbe6e4; --info: #2d5ba8; --info-soft: #e6eefa;
-    --forecast: #895000;
+    --bg: #f0f3fc;
+    --panel: #ffffff;
+    --ink: #0d1226;
+    --muted: #4a5480;
+    --line: #c1c8e4;
+    --accent: #5680e9;
+    --accent-soft: #e0e8fc;
+    --warn: #c07010;
+    --warn-soft: #fff4d6;
+    --crit: #c0304a;
+    --crit-soft: #fce8ee;
+    --info: #8860d0;
+    --info-soft: #ede8f8;
+    --forecast: #3a9ed8;
     --on-accent: #ffffff;
-    --chart-palette: #0f6e56, #2d5ba8, #895000, #7a3e9d, #b3261e, #3f7f2a, #5f6b65, #c2185b;
+    --header-bg: #161e3a;
+    --header-ink: #dce4f8;
+    --header-line: #2a3560;
+    --chart-palette: #5680e9, #3a9ed8, #8860d0, #0d1226, #c0304a, #84ceeb, #4a5480, #5ab9ea;
+    --skel-shine: rgba(255,255,255,.75);
   }
   * { box-sizing: border-box; }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 "Inter", system-ui, -apple-system, Segoe UI, sans-serif; }
-  header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; padding: 14px 24px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
-  h1 { font-size: 17px; margin: 0; letter-spacing: -0.01em; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 "Nunito Sans", "Inter", system-ui, -apple-system, Segoe UI, sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; padding: 14px 24px; background: var(--header-bg); border-bottom: 3px solid var(--accent); position: sticky; top: 0; z-index: 5; color: var(--header-ink); }
+  header button { color: var(--header-ink); }
+  header .btn.ghost { color: var(--header-ink); border-color: var(--header-line); }
+  h1 { font-size: 17px; margin: 0; letter-spacing: -0.01em; color: var(--header-ink); font-weight: 700; }
   h1 span { color: var(--accent); }
+  header .logo { height: 30px; width: 30px; border-radius: 7px; flex: none; }
   .roles { display: flex; gap: 6px; flex-wrap: wrap; }
-  .roles button { border: 1px solid var(--line); background: var(--panel); padding: 7px 12px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 14px; color: var(--ink); }
+  .roles button { border: 1px solid var(--header-line); background: transparent; padding: 7px 12px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 14px; color: var(--header-ink); }
   .roles button.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
-  .meter { margin-left: auto; display: flex; align-items: baseline; gap: 8px; padding: 6px 14px; border-radius: 10px; background: var(--accent-soft); }
+  .role-select-wrap { display: flex; align-items: center; gap: 8px; }
+  .role-select-wrap label { font-size: 13px; color: var(--header-ink); opacity: .75; white-space: nowrap; }
+  .role-select-wrap select { background: transparent; border: 1px solid var(--header-line); border-radius: 999px; padding: 7px 30px 7px 14px; font: inherit; font-size: 14px; color: var(--header-ink); cursor: pointer; -webkit-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23dce4f8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 11px center; }
+  .role-select-wrap select option { background: var(--panel); color: var(--ink); }
+  header .viewtabs { margin-bottom: 0; }
+  .meter { margin-left: auto; display: flex; align-items: baseline; gap: 8px; padding: 6px 14px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 18%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
   .meter b { font-size: 20px; color: var(--accent); font-variant-numeric: tabular-nums; }
-  .meter small { color: var(--muted); }
-  main { display: grid; grid-template-columns: 340px 1fr; gap: 20px; padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; padding: 16px; } .meter { margin-left: 0; } }
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
-  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; }
-  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .card { border: 1px solid var(--line); border-radius: 10px; padding: 10px; cursor: pointer; transition: border-color .12s; }
-  .card:hover { border-color: var(--accent); }
+  .meter small { color: var(--header-ink); opacity: .7; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 20px 24px; max-width: 1500px; margin: 0 auto; align-items: start; }
+  main > section { min-width: 0; }
+  main.chat > section { width: 100%; max-width: 940px; justify-self: center; }
+  @media (max-width: 1023px) { main { padding: 16px; } .dashcols { grid-template-columns: 1fr; } main.chat > section { max-width: none; } .meter { margin-left: 0; } }
+  @media (max-width: 720px) { header { padding: 10px 16px; gap: 8px 12px; } .meter { padding: 4px 10px; } .meter b { font-size: 16px; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+  .panel h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 0 0 12px; font-weight: 700; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 10px; }
+  .card { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: 3px; align-content: start; border: 1px solid var(--line); border-radius: 8px; padding: 12px; cursor: pointer; transition: border-color .12s, box-shadow .12s; min-width: 0; }
+  .card:hover { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .card .v { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .card .v, .card .delta, .card .l { grid-column: 1; }
   .card .l { font-size: 12.5px; color: var(--muted); }
-  .card.critical { background: var(--crit-soft); border-color: transparent; } .card.critical .v { color: var(--crit); }
-  .card.warning { background: var(--warn-soft); border-color: transparent; } .card.warning .v { color: var(--warn); }
+  .card .spark, .card .spark.bar { position: relative; grid-column: 1 / -1; grid-row: auto; margin-top: 8px; height: 96px; min-height: 0; overflow: hidden; }
+  .card .spark canvas { position: absolute; inset: 0; display: block; }
+  .card .kysy { grid-column: 1 / -1; }
+  .card.critical { background: var(--crit-soft); border-color: var(--crit); } .card.critical .v { color: var(--crit); }
+  .card.warning { background: var(--warn-soft); border-color: var(--warn); } .card.warning .v { color: var(--warn); }
   .delta { font-size: 12.5px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
   .delta.good { color: var(--accent); } .delta.bad { color: var(--crit); }
   .kysy { padding: 4px 10px; font-size: 12.5px; margin-top: 8px; }
@@ -66,7 +116,7 @@ try {
   .dev.low { background: var(--info-soft); color: var(--info); }
   .devs.ok { color: var(--accent); font-size: 13px; }
   .overlay { position: fixed; inset: 0; background: rgba(20, 24, 22, .45); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 20; }
-  .modal { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; width: 100%; max-width: 660px; max-height: 85vh; overflow: auto; position: relative; }
+  .modal { background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--accent); border-radius: 8px; padding: 20px 22px; width: 100%; max-width: 660px; max-height: 85vh; overflow: auto; position: relative; }
   .modal h3 { margin: 0 0 2px; font-size: 16px; }
   .close { position: absolute; top: 10px; right: 12px; border: 0; background: transparent; color: var(--muted); font-size: 17px; cursor: pointer; padding: 4px; }
   .close:hover { color: var(--ink); }
@@ -76,7 +126,7 @@ try {
   .desc { font-size: 13.5px; color: var(--muted); margin: 6px 0 10px; line-height: 1.5; }
   .kpi { font-size: 12.5px; color: var(--muted); margin-bottom: 10px; }
   .modal .chartbox { height: 220px; margin-bottom: 6px; }
-  .items { list-style: none; margin: 14px 0 0; padding: 0; }
+  .items { list-style: none; margin: 0; padding: 0; }
   .items li { padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
   .pill { display: inline-block; font-size: 11.5px; padding: 1px 8px; border-radius: 999px; background: var(--line); margin-left: 4px; }
   .pill.STOCKOUT_RISK, .pill.ORDER_NOW { background: var(--crit-soft); color: var(--crit); }
@@ -85,7 +135,8 @@ try {
   .ask { display: flex; gap: 8px; }
   .ask input { flex: 1; min-width: 0; padding: 11px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); font: inherit; }
   .ask input::placeholder { color: var(--muted); opacity: 1; }
-  .ask button, .btn { padding: 10px 16px; border: 0; border-radius: 10px; background: var(--accent); color: var(--on-accent); font: inherit; cursor: pointer; }
+  .ask button, .btn { padding: 10px 16px; border: 0; border-radius: 6px; background: var(--accent); color: var(--on-accent); font: inherit; cursor: pointer; font-weight: 600; letter-spacing: .01em; transition: opacity .12s; }
+  .ask button:hover, .btn:hover { opacity: .88; }
   button:disabled, input:disabled { opacity: .6; cursor: not-allowed; }
   .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); padding: 6px 10px; font-size: 13px; }
   .btn.danger { background: transparent; color: var(--crit); border: 1px solid var(--crit); padding: 6px 10px; font-size: 13px; }
@@ -115,7 +166,25 @@ try {
   .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 10px; font-size: 13px; }
   a { color: var(--accent); }
   .muted { color: var(--muted); }
-  .spinner { color: var(--muted); font-size: 14px; margin: 12px 0; }
+  .skeleton { position: relative; overflow: hidden; border-radius: 6px; background: var(--line); }
+  .skeleton::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, var(--skel-shine), transparent); animation: skel-shimmer 1.3s infinite; }
+  @keyframes skel-shimmer { 100% { transform: translateX(100%); } }
+  @media (prefers-reduced-motion: reduce) { .skeleton::after { animation: none; } }
+  .skeleton + .skeleton { margin-top: 8px; }
+  .sk-h { height: 14px; width: 40%; }
+  .sk-val { height: 22px; width: 55%; }
+  .sk-l1 { height: 12px; width: 72%; }
+  .sk-l2 { height: 12px; width: 48%; }
+  .sk-spark { min-height: 96px; }
+  .skel .card .sk-val, .skel .card .sk-l1, .skel .card .sk-l2 { grid-column: 1; }
+  .skel .card .sk-spark { grid-column: 1 / -1; grid-row: auto; }
+  .sk-chart { height: 300px; }
+  .sk-chart.sm { height: 220px; }
+  .sk-bubble { height: 38px; width: 40%; max-width: 280px; margin-left: auto; border-radius: 14px 14px 4px 14px; }
+  .skel .cards, .skel .tiles { margin-top: 14px; }
+  .skel .card, .skel .tile { cursor: default; }
+  .skel .card:hover { border-color: var(--line); }
+  .sk-cap { color: var(--muted); font-size: 13px; margin-top: 12px; }
   .chat-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
   .chat-head h2 { margin: 0; }
   .empty { padding: 24px 0; font-size: 14px; }
@@ -128,22 +197,50 @@ try {
   .reason.muted { font-size: 13px; margin-top: 0; }
   .ask { margin-top: 12px; }
   .viewtabs { display: flex; gap: 6px; margin-bottom: 14px; }
-  .viewtabs button { border: 1px solid var(--line); background: var(--panel); padding: 7px 14px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 14px; color: var(--ink); }
-  .viewtabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
-  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  @media (max-width: 1250px) { .tiles { grid-template-columns: 1fr; } }
-  .tile { border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; background: var(--panel); }
+  .viewtabs button { border: 1px solid var(--line); background: var(--panel); padding: 7px 14px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 14px; color: var(--ink); transition: border-color .12s, background .12s; }
+  .viewtabs button.on { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: 14px; }
+  .dashcols { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; align-items: start; }
+  .dashcols > * { min-width: 0; }
+  .tile { border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-width: 0; background: var(--panel); border-top: 3px solid var(--accent); }
   .tile-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
   .pill.pin { background: var(--accent-soft); color: var(--accent); cursor: pointer; }
   .pinsel { border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px; font: inherit; font-size: 13px; background: var(--panel); color: var(--ink); }
+  .regact { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .vstack { display: grid; gap: 6px; justify-items: start; }
+  .pindd { position: relative; margin-top: 0; border-top: 0; padding-top: 0; }
+  .pindd summary { list-style: none; display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--accent); color: var(--accent); background: transparent; border-radius: 10px; padding: 6px 10px; font: inherit; font-size: 13px; cursor: pointer; }
+  .pindd summary::-webkit-details-marker { display: none; }
+  .pindd summary::after { content: '▾'; font-size: 11px; }
+  .pindd[open] summary { background: var(--accent-soft); border-bottom: 0; border-radius: 10px 10px 0 0; }
+  .pindd[open] summary::after { content: '▴'; }
+  .pinmenu { position: absolute; top: 100%; left: 0; z-index: 8; background: var(--panel); border: 1px solid var(--accent); border-top: 0; border-radius: 0 0 10px 10px; padding: 0 12px 8px; display: grid; gap: 6px; min-width: 200px; box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+  .pinmenu label { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; white-space: nowrap; }
+  .pill.urgent { background: var(--crit-soft); color: var(--crit); }
+  .pill.high { background: var(--warn-soft); color: var(--warn); }
+  .pill.new { background: var(--info-soft); color: var(--info); }
+  .pill.triaged { background: var(--accent-soft); color: var(--accent); }
+  .brfilters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+  .brfilters input { border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px; font: inherit; font-size: 13px; background: var(--panel); color: var(--ink); min-width: 160px; }
+  .brfilters input::placeholder { color: var(--muted); opacity: 1; }
+  .regtoggle { display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; font-weight: normal; font-size: 13px; color: var(--muted); cursor: pointer; }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
+    <img class="logo" src="/static/favicon-bars.webp" alt="" aria-hidden="true">
     <h1>Build <span>Less</span> {{ t('assistentti') }}</h1>
-    <div class="roles">
-      <button v-for="r in roles" :key="r.id" :class="{on: r.id === role}" @click="setRole(r.id)">{{ r.label }}</button>
+    <div class="role-select-wrap">
+      <label>{{ t('Rooli') }}</label>
+      <select :value="role" @change="setRole($event.target.value)">
+        <option v-for="r in roles" :key="r.id" :value="r.id">{{ r.label }}</option>
+      </select>
+    </div>
+    <div class="viewtabs">
+      <button v-if="role === 'data_steward'" :class="{on: view === 'dash'}" @click="setView('dash')">{{ t('Hallinta') }}</button>
+      <button v-else :class="{on: view === 'dash'}" @click="setView('dash')">{{ t('Kojelauta') }}</button>
+      <button :class="{on: view === 'chat'}" @click="setView('chat')">{{ t('Keskustelu') }}</button>
     </div>
     <div class="meter" v-if="meter">
       <b>{{ fmt(meter.requests) }}</b><small>{{ t('pyyntöä') }}</small>
@@ -157,54 +254,83 @@ try {
     </div>
   </header>
 
-  <main>
-    <section class="panel" v-if="brief">
+  <main :class="[view, role]">
+    <section class="panel" v-if="view === 'dash'">
+      <template v-if="brief">
       <h2>{{ t('Aamubriefing') }} · {{ brief.role }}<template v-if="brief.plant"> · {{ brief.plant }}</template></h2>
       <div class="cards">
         <div v-for="c in brief.cards" class="card" :class="c.tone" @click="openCard(c)">
           <div class="v">{{ fmt(c.value) }}<small v-if="c.unit" class="muted"> {{ c.unit }}</small></div>
           <div class="delta" v-if="c.target != null" :class="deltaTone(c)">{{ deltaText(c) }}</div>
           <div class="l">{{ c.label }}</div>
-          <button v-if="c.ask_hint" class="btn ghost kysy" @click.stop="askFrom(c.ask_hint)">Kysy tästä</button>
+          <div class="spark" v-if="cardCharts[c.key]" :class="cardCharts[c.key].type" aria-hidden="true"><canvas :id="'sc-' + c.key"></canvas></div>
+          <button v-if="c.ask_hint" class="btn ghost kysy" @click.stop="askFrom(c.ask_hint)">{{ t('Kysy tästä') }}</button>
         </div>
       </div>
-      <ul class="items" v-if="brief.items.length">
-        <li v-for="i in brief.items">
-          <b>{{ i.product }}</b> → {{ t(i.market) }} <span class="pill" :class="i.status">{{ t(i.status) }}</span><br>
-          <span class="muted">{{ t('tilaa viimeistään') }} {{ date(i.reorder_by) }} · {{ fmt(i.weekly_units) }} {{ t('kpl/vko') }}</span>
-          <span v-if="i.expedite" class="warn"><br>{{ t('nopeutus') }}: {{ i.expedite }}</span>
-        </li>
-      </ul>
-      <div class="devs" v-if="brief.deviations && brief.deviations.length">
-        <div v-for="d in brief.deviations" :key="d.card_key" class="dev" :class="d.severity">{{ d.message }}</div>
+      </template>
+      <div v-else class="skel" role="status" :aria-label="t('Haetaan aamubriefingiä…')">
+        <div aria-hidden="true">
+          <div class="skeleton sk-h"></div>
+          <div class="cards">
+            <div v-for="n in 6" :key="n" class="card">
+              <div class="skeleton sk-val"></div>
+              <div class="skeleton sk-l2"></div>
+              <div class="skeleton sk-l1"></div>
+              <div class="skeleton sk-spark"></div>
+            </div>
+          </div>
+        </div>
+        <div class="sk-cap">{{ t('Haetaan aamubriefingiä…') }}</div>
       </div>
-      <div class="devs ok" v-else-if="brief.deviations">Ei poikkeamia — kaikki tavoitteissa.</div>
-      <div class="fresh" v-if="brief.freshness">{{ brief.freshness }}</div>
     </section>
 
-    <section>
-      <div class="panel" v-if="role === 'data_steward'">
-        <h2>{{ t('Kaaviorekisteri') }}</h2>
+    <section :class="{ dashcols: showBriefSide }">
+      <aside class="panel briefside" v-if="showBriefSide">
+        <ul class="items" v-if="brief.items.length">
+          <li v-for="i in brief.items">
+            <b>{{ i.product }}</b> → {{ t(i.market) }} <span class="pill" :class="i.status">{{ t(i.status) }}</span><br>
+            <span class="muted">{{ t('tilaa viimeistään') }} {{ date(i.reorder_by) }} · {{ fmt(i.weekly_units) }} {{ t('kpl/vko') }}</span>
+            <span v-if="i.expedite" class="warn"><br>{{ t('nopeutus') }}: {{ i.expedite }}</span>
+          </li>
+        </ul>
+        <div class="devs" v-if="brief.deviations && brief.deviations.length">
+          <div v-for="d in brief.deviations" :key="d.card_key" class="dev" :class="d.severity">{{ d.message }}</div>
+        </div>
+        <div class="devs ok" v-else-if="brief.deviations">{{ t('Ei poikkeamia — kaikki tavoitteissa.') }}</div>
+        <div class="fresh" v-if="brief.freshness">{{ brief.freshness }}</div>
+      </aside>
+      <div class="panel" v-if="view === 'dash' && role === 'data_steward'">
+        <h2>{{ t('Kaaviorekisteri') }} <label class="regtoggle"><input type="checkbox" v-model="showRetired"> {{ t('Näytä poistetut') }}</label></h2>
         <table>
-          <tr><th>{{ t('Kaavio') }}</th><th>{{ t('Omistaja') }}</th><th>{{ t('Käyttöjä') }}</th><th>{{ t('Roolit') }}</th><th>{{ t('Tila') }}</th><th></th></tr>
-          <tr v-for="c in registry" :key="c.fingerprint">
+          <tr><th>{{ t('Kaavio') }}</th><th>{{ t('Omistaja') }}</th><th>{{ t('Käyttöjä') }}</th><th>{{ t('Roolit') }}</th><th>{{ t('Tila') }}</th><th :aria-label="t('Ehdotukset')"></th><th :aria-label="t('Esikatsele') + ' · ' + t('Kiinnitykset')"></th></tr>
+          <tr v-for="c in visibleRegistry" :key="c.fingerprint">
             <td><b>{{ chartTitle(c) }}</b><br><span class="muted">{{ c.fingerprint }}</span></td>
             <td>{{ t(c.owner) }}</td><td>{{ c.use_count || 0 }}</td><td>{{ (c.used_by_roles || []).length }}</td>
             <td>{{ t(c.status) }}<span v-if="c.suggestion" class="pill URGENT">{{ t('ehdotus') }}: {{ t(c.suggestion) }}</span></td>
             <td>
-              <template v-if="c.status === 'certified'">
-                <span v-for="pr in rolesWherePinned(c.fingerprint)" :key="pr" class="pill pin"
-                      :title="t('Poista kojelaudalta:') + ' ' + labelFor(pr)" @click="unpin(pr, c.fingerprint)">✕ {{ labelFor(pr) }}</span>
-                <select v-model="pinTarget[c.fingerprint]" class="pinsel">
-                  <option v-for="r in factoryRoles" :value="r.id">{{ r.label }}</option>
-                </select>
-                <button class="btn ghost" @click="pin(c.fingerprint)">{{ t('Kiinnitä') }}</button>
-              </template>
-              <button class="btn ghost" v-if="c.status === 'active'" @click="propose(c.fingerprint, 'certify')">{{ t('Ehdota sertifiointia') }}</button>
-              <button class="btn danger" v-if="c.status !== 'retired'" @click="propose(c.fingerprint, 'retire')">{{ t('Ehdota poistoa') }}</button>
+              <div class="vstack" v-if="c.status !== 'retired'">
+                <button class="btn ghost" v-if="c.status === 'active'" @click="propose(c.fingerprint, 'certify')">{{ t('Ehdota sertifiointia') }}</button>
+                <button class="btn danger" @click="propose(c.fingerprint, 'retire')">{{ t('Ehdota poistoa') }}</button>
+              </div>
+            </td>
+            <td>
+              <div class="regact">
+                <button class="btn ghost" v-if="c.status !== 'retired'" @click="openPreview(c.fingerprint)">{{ t('Esikatsele') }}</button>
+                <details class="pindd" v-if="c.status === 'certified'">
+                  <summary :aria-label="t('Kiinnitykset')" @click="closeOtherPins($event)">{{ pinSummary(c.fingerprint) }}</summary>
+                  <div class="pinmenu">
+                    <label v-for="r in factoryRoles" :key="r.id">
+                      <input type="checkbox" :checked="rolesWherePinned(c.fingerprint).includes(r.id)"
+                             @change="setPin(r.id, c.fingerprint, $event.target.checked)">
+                      {{ r.label }}
+                    </label>
+                  </div>
+                </details>
+              </div>
             </td>
           </tr>
-          <tr v-if="!registry.length"><td colspan="6" class="muted">{{ t('Ei vielä kaavioita. Kysy jotain tehdasroolina.') }}</td></tr>
+          <tr v-if="!registry.length"><td colspan="7" class="muted">{{ t('Ei vielä kaavioita. Kysy jotain tehdasroolina.') }}</td></tr>
+          <tr v-else-if="!visibleRegistry.length"><td colspan="7" class="muted">{{ t('Kaikki kaaviot on poistettu. Rastita “Näytä poistetut” nähdäksesi ne.') }}</td></tr>
         </table>
         <h2 style="margin-top:20px">{{ t('Hyväksyntää odottavat') }}</h2>
         <table>
@@ -218,47 +344,82 @@ try {
           </tr>
           <tr v-if="!proposals.length"><td class="muted">{{ t('Ei ehdotuksia.') }}</td></tr>
         </table>
+        <h2 style="margin-top:20px">{{ t('Liiketoimintapyynnöt') }}</h2>
+        <div class="brfilters">
+          <select v-model="brFilter.urgency" class="pinsel" :aria-label="t('Kiireellisyys')">
+            <option value="">{{ t('Kaikki') }} · {{ t('Kiireellisyys') }}</option>
+            <option v-for="u in brUrgencies" :key="u" :value="u">{{ t(u) }}</option>
+          </select>
+          <select v-model="brFilter.status" class="pinsel" :aria-label="t('Tila')">
+            <option value="">{{ t('Kaikki') }} · {{ t('Tila') }}</option>
+            <option v-for="s in brStatuses" :key="s" :value="s">{{ t(s) }}</option>
+          </select>
+          <select v-model="brFilter.product" class="pinsel" :aria-label="t('Tuote')">
+            <option value="">{{ t('Kaikki') }} · {{ t('Tuote') }}</option>
+            <option v-for="p in brProducts" :key="p" :value="p">{{ p }}</option>
+          </select>
+          <select v-model="brFilter.market" class="pinsel" :aria-label="t('Markkina')">
+            <option value="">{{ t('Kaikki') }} · {{ t('Markkina') }}</option>
+            <option v-for="m in brMarkets" :key="m" :value="m">{{ m }}</option>
+          </select>
+          <input v-model="brFilter.q" :placeholder="t('Hae pyyntöjä…')" :aria-label="t('Hae pyyntöjä…')">
+        </div>
+        <div style="overflow:auto;max-height:420px"><table>
+          <tr><th>{{ t('Päivämäärä') }}</th><th>{{ t('Tuote') }}</th><th>{{ t('Markkina') }}</th><th>{{ t('Pyyntö') }}</th><th>{{ t('Kiireellisyys') }}</th><th>{{ t('Tila') }}</th><th></th></tr>
+          <tr v-for="r in filteredRequests" :key="r.request_id">
+            <td>{{ date(r.request_date) }}</td>
+            <td>{{ r.product_context }}</td>
+            <td>{{ r.market_context }}</td>
+            <td>{{ r.request_text }}</td>
+            <td><span class="pill" :class="r.urgency">{{ t(r.urgency) }}</span></td>
+            <td><span class="pill" :class="r.status">{{ t(r.status) }}</span></td>
+            <td><button class="btn ghost kysy" @click="askFrom(r.request_text)">{{ t('Kysy chatissa') }}</button></td>
+          </tr>
+          <tr v-if="!filteredRequests.length"><td colspan="7" class="muted">{{ t('Ei pyyntöjä.') }}</td></tr>
+        </table></div>
         <h2 style="margin-top:20px">{{ t('Audit log') }}</h2>
         <table><tr v-for="a in auditLog"><td class="muted">{{ dateTime(a.ts) }}</td><td>{{ t(a.event) }}</td><td>{{ chartTitle(a) || a.fingerprint || a.proposal_id }}</td></tr></table>
       </div>
 
-      <template v-else>
-      <div class="viewtabs">
-        <button :class="{on: view === 'dash'}" @click="setView('dash')">Kojelauta</button>
-        <button :class="{on: view === 'chat'}" @click="setView('chat')">Keskustelu</button>
-      </div>
-
-      <div class="panel" v-if="view === 'dash'">
-        <h2>Kojelauta · {{ roleLabel }}</h2>
-        <div class="fresh" v-if="dash">Sertifioidut KPI:t: {{ dash.kpi_ids.join(', ') || '–' }} · {{ dash.tiles.length }} kaaviota · luvut lasketaan aina tuoreesta datasta</div>
-        <div class="spinner" v-if="dashBusy">Haetaan sertifioituja kaavioita…</div>
+      <div class="panel" v-else-if="view === 'dash'">
+        <h2>{{ t('Kojelauta') }} · {{ roleLabel }}</h2>
+        <div class="fresh" v-if="dash">{{ t('Sertifioidut KPI:t') }}: {{ dash.kpi_ids.join(', ') || '–' }} · {{ dash.tiles.length }} {{ t('kaaviota') }} · {{ t('luvut lasketaan aina tuoreesta datasta') }}</div>
+        <div class="skel" v-if="dashBusy" role="status" :aria-label="t('Haetaan sertifioituja kaavioita…')">
+          <div class="tiles" aria-hidden="true">
+            <div v-for="n in 2" :key="n" class="tile">
+              <div class="skeleton sk-h"></div>
+              <div class="skeleton sk-chart"></div>
+            </div>
+          </div>
+          <div class="sk-cap">{{ t('Haetaan sertifioituja kaavioita…') }}</div>
+        </div>
         <div class="empty muted" v-if="dash && !dash.tiles.length">
-          Ei vielä sertifioituja kaavioita tälle roolille. Kysy lukuja keskustelussa ja pyydä Data Stewardia sertifioimaan ne.
-          <div style="margin-top:10px"><button class="btn ghost" @click="setView('chat')">Siirry keskusteluun</button></div>
+          {{ t('Ei vielä sertifioituja kaavioita tälle roolille. Kysy lukuja keskustelussa ja pyydä Data Stewardia sertifioimaan ne.') }}
+          <div style="margin-top:10px"><button class="btn ghost" @click="setView('chat')">{{ t('Siirry keskusteluun') }}</button></div>
         </div>
         <div class="tiles" v-if="dash">
-          <div v-for="t in dash.tiles" :key="t.fingerprint" class="tile">
+          <div v-for="tile in dash.tiles" :key="tile.fingerprint" class="tile">
             <div class="tile-head">
-              <b>{{ t.title }}</b>
-              <span class="pill" v-for="k in t.kpi_ids" :key="k">{{ k }}</span>
-              <span class="pill pin" v-if="t.pinned" title="Data Steward kiinnitti tämän kojelaudalle">kiinnitetty</span>
+              <b>{{ tile.title }}</b>
+              <span class="pill" v-for="k in tile.kpi_ids" :key="k">{{ k }}</span>
+              <span class="pill pin" v-if="tile.pinned" :title="t('Data Steward kiinnitti tämän kojelaudalle')">{{ t('kiinnitetty') }}</span>
             </div>
-            <div class="chartbox" v-if="t.chart && t.chart.type !== 'table'"><canvas :id="'d' + t.fingerprint"></canvas></div>
-            <div class="fc-legend" v-if="t.chart && t.chart.type !== 'table' && hasForecast(t.chart)">
+            <div class="chartbox" v-if="tile.chart && tile.chart.type !== 'table'"><canvas :id="'d' + tile.fingerprint"></canvas></div>
+            <div class="fc-legend" v-if="tile.chart && tile.chart.type !== 'table' && hasForecast(tile.chart)">
               <span class="dot actual"></span>{{ legendActual }}<span class="dot forecast"></span>{{ legendForecast }}<span>·</span>{{ legendBlend }}
             </div>
-            <div v-if="t.chart && t.chart.type === 'table'" style="overflow:auto;max-height:320px"><table>
-              <tr><th v-for="k in Object.keys(t.rows[0] || {})">{{ k }}</th></tr>
-              <tr v-for="r in t.rows.slice(0, 15)"><td v-for="v in Object.values(r)">{{ typeof v === 'number' ? fmt(v) : v }}</td></tr>
+            <div v-if="tile.chart && tile.chart.type === 'table'" style="overflow:auto;max-height:320px"><table>
+              <tr><th v-for="k in Object.keys(tile.rows[0] || {})">{{ t(k) }}</th></tr>
+              <tr v-for="r in tile.rows.slice(0, 15)"><td v-for="v in Object.values(r)">{{ typeof v === 'number' ? fmt(v) : t(v) }}</td></tr>
             </table></div>
-            <div class="warn" v-if="t.error">Laskenta epäonnistui: {{ t.error }}</div>
-            <details v-if="t.receipt"><summary>Laskenta</summary>
+            <div class="warn" v-if="tile.error">{{ t('Laskenta epäonnistui') }}: {{ tile.error }}</div>
+            <details v-if="tile.receipt"><summary>{{ t('Laskenta') }}</summary>
               <dl class="receipt">
-                <dt>KPI</dt><dd>{{ t.receipt.kpi.id }} {{ t.receipt.kpi.name }} <span class="pill">{{ t.receipt.kpi.definition_status }}</span></dd>
-                <dt>Määritelmä</dt><dd>{{ t.receipt.definition }}</dd>
-                <template v-if="t.receipt.source"><dt>Lähde</dt><dd>{{ t.receipt.source.sheet || t.receipt.source.collection }} · {{ t.receipt.source.rows_used }} riviä</dd></template>
-                <template v-if="t.receipt.warnings && t.receipt.warnings.length"><dt>Huomiot</dt><dd class="warn"><div v-for="w in t.receipt.warnings">{{ w }}</div></dd></template>
-                <dt>Sormenjälki</dt><dd>{{ t.fingerprint }}</dd>
+                <dt>KPI</dt><dd>{{ tile.receipt.kpi.id }} {{ t(tile.receipt.kpi.name) }} <span class="pill">{{ t(tile.receipt.kpi.definition_status) }}</span></dd>
+                <dt>{{ t('Määritelmä') }}</dt><dd>{{ tile.receipt.definition }}</dd>
+                <template v-if="tile.receipt.source"><dt>{{ t('Lähde') }}</dt><dd>{{ tile.receipt.source.sheet || tile.receipt.source.collection }} · {{ tile.receipt.source.rows_used }} {{ t('riviä') }}</dd></template>
+                <template v-if="tile.receipt.warnings && tile.receipt.warnings.length"><dt>{{ t('Huomiot') }}</dt><dd class="warn"><div v-for="w in tile.receipt.warnings">{{ w }}</div></dd></template>
+                <dt>{{ t('Sormenjälki') }}</dt><dd>{{ tile.fingerprint }}</dd>
               </dl>
             </details>
           </div>
@@ -316,48 +477,115 @@ try {
         </div>
         <div class="chips" v-if="(a.suggestions || []).length"><button v-for="s in a.suggestions" :key="s.question" @click="question = s.question; ask()" :disabled="busy || languageLoading">{{ s.label }}</button></div>
       </div>
-        <div class="spinner" v-if="busy">{{ t('Gemini tulkitsee kysymystä ja moottori laskee…') }}</div>
+        <div class="skel" v-if="busy" role="status" :aria-label="t('Gemini tulkitsee kysymystä ja moottori laskee…')">
+          <div class="turn" aria-hidden="true">
+            <div class="skeleton sk-bubble"></div>
+            <div class="answer">
+              <div class="skeleton sk-h" style="width:32%"></div>
+              <div class="skeleton sk-l1"></div>
+              <div class="skeleton sk-l2"></div>
+              <div class="skeleton sk-chart"></div>
+            </div>
+          </div>
+          <div class="sk-cap">{{ t('Gemini tulkitsee kysymystä ja moottori laskee…') }}</div>
+        </div>
         <form class="ask" @submit.prevent="ask()">
           <input v-model="question" :placeholder="t('Kysy luvuista, pyydä kaaviota tai jatka edellisestä…')" :disabled="busy || languageLoading" ref="input">
           <button :disabled="busy || languageLoading || !question.trim()">{{ t('Lähetä') }}</button>
         </form>
         <div class="chips"><button v-for="e in examples[role]" @click="question = e; ask()" :disabled="busy || languageLoading">{{ e }}</button></div>
       </div>
-      </template>
     </section>
   </main>
 
   <div class="overlay" v-if="modal || modalBusy" @click.self="closeCard()">
     <div class="modal" v-if="modal">
-      <button class="close" @click="closeCard()" aria-label="Sulje">✕</button>
+      <button class="close" @click="closeCard()" :aria-label="t('Sulje')">✕</button>
       <h3>{{ modal.label }}</h3>
       <div class="modalval">{{ fmt(modal.value) }}<small v-if="modal.unit"> {{ modal.unit }}</small></div>
       <div class="delta" v-if="modal.target != null" :class="deltaTone(modal)">{{ deltaText(modal) }}</div>
       <p class="desc">{{ modal.description }}</p>
-      <div class="kpi" v-if="modal.kpi"><span class="pill">{{ modal.kpi.id }}</span> {{ modal.kpi.name }} · {{ modal.kpi.definition }}</div>
+      <div class="kpi" v-if="modal.kpi"><span class="pill">{{ modal.kpi.id }}</span> {{ t(modal.kpi.name) }} · {{ modal.kpi.definition }}</div>
       <div class="chartbox" v-if="modal.chart && modal.chart.labels.length"><canvas id="modalchart"></canvas></div>
       <div class="fc-legend" v-if="hasForecast(modal.chart)">
         <span class="dot actual"></span>{{ legendActual }}<span class="dot forecast"></span>{{ legendForecast }}<span>·</span>{{ legendBlend }}
       </div>
       <details v-if="modal.rows && modal.rows.length" :open="!(modal.chart && modal.chart.labels.length)">
-        <summary>Rivit ({{ modal.rows.length }})</summary>
+        <summary>{{ t('Rivit') }} ({{ modal.rows.length }})</summary>
         <div style="overflow:auto;max-height:300px"><table>
-          <tr><th v-for="k in Object.keys(modal.rows[0])">{{ k }}</th></tr>
-          <tr v-for="r in modal.rows"><td v-for="v in Object.values(r)">{{ typeof v === 'number' ? fmt(v) : v }}</td></tr>
+          <tr><th v-for="k in Object.keys(modal.rows[0])">{{ t(k) }}</th></tr>
+          <tr v-for="r in modal.rows"><td v-for="v in Object.values(r)">{{ typeof v === 'number' ? fmt(v) : t(v) }}</td></tr>
         </table></div>
       </details>
       <div class="row">
-        <button v-if="modal.ask_hint" class="btn ghost" @click="askFrom(modal.ask_hint); closeCard()">Kysy tästä chatissa</button>
+        <button v-if="modal.ask_hint" class="btn ghost" @click="askFrom(modal.ask_hint); closeCard()">{{ t('Kysy tästä chatissa') }}</button>
         <span class="muted" v-if="modal.source">{{ modal.source }}</span>
       </div>
     </div>
-    <div class="modal" v-else-if="modalBusy"><div class="spinner">Ladataan kortin tietoja…</div></div>
+    <div class="modal" v-else-if="modalBusy">
+      <div class="skel" role="status" :aria-label="t('Ladataan kortin tietoja…')">
+        <div aria-hidden="true">
+          <div class="skeleton" style="height:17px;width:45%"></div>
+          <div class="skeleton" style="height:28px;width:45%;max-width:220px"></div>
+          <div class="skeleton" style="height:13px;width:32%"></div>
+          <div class="skeleton sk-chart sm"></div>
+        </div>
+        <div class="sk-cap">{{ t('Ladataan kortin tietoja…') }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" v-if="preview || previewBusy" @click.self="closePreview()">
+    <div class="modal" v-if="preview">
+      <button class="close" @click="closePreview()" :aria-label="t('Sulje')">✕</button>
+      <h3>{{ preview.title }}</h3>
+      <div class="row" style="margin-top:0">
+        <span class="pill">{{ t(preview.status) }}</span>
+        <span class="pill" v-for="k in preview.kpi_ids" :key="k">{{ k }}</span>
+        <span class="muted">{{ t(preview.owner) }} · {{ preview.fingerprint }}</span>
+      </div>
+      <div class="chartbox" v-if="preview.chart && preview.chart.type !== 'table' && preview.chart.labels.length"><canvas id="previewchart"></canvas></div>
+      <div class="fc-legend" v-if="hasForecast(preview.chart)">
+        <span class="dot actual"></span>{{ legendActual }}<span class="dot forecast"></span>{{ legendForecast }}<span>·</span>{{ legendBlend }}
+      </div>
+      <div v-if="preview.chart && preview.chart.type === 'table'" style="overflow:auto;max-height:320px"><table>
+        <tr><th v-for="k in Object.keys(preview.rows[0] || {})">{{ t(k) }}</th></tr>
+        <tr v-for="r in preview.rows.slice(0, 15)"><td v-for="v in Object.values(r)">{{ typeof v === 'number' ? fmt(v) : t(v) }}</td></tr>
+      </table></div>
+      <div class="warn" v-if="preview.error">{{ t('Laskenta epäonnistui') }}: {{ preview.error }}</div>
+      <details v-if="preview.receipt"><summary>{{ t('Laskenta') }}</summary>
+        <dl class="receipt">
+          <dt>KPI</dt><dd>{{ preview.receipt.kpi.id }} {{ t(preview.receipt.kpi.name) }} <span class="pill">{{ t(preview.receipt.kpi.definition_status) }}</span></dd>
+          <dt>{{ t('Määritelmä') }}</dt><dd>{{ preview.receipt.definition }}</dd>
+          <template v-if="preview.receipt.source"><dt>{{ t('Lähde') }}</dt><dd>{{ preview.receipt.source.sheet || preview.receipt.source.collection }} · {{ fmt(preview.receipt.source.rows_used) }} {{ t('riviä') }}</dd></template>
+          <template v-if="preview.receipt.filters"><dt>{{ t('Suodattimet') }}</dt><dd>{{ filtersText(preview.receipt.filters) }}</dd></template>
+          <template v-if="preview.receipt.warnings && preview.receipt.warnings.length"><dt>{{ t('Huomiot') }}</dt><dd class="warn"><div v-for="w in preview.receipt.warnings">{{ w }}</div></dd></template>
+          <dt>{{ t('Sormenjälki') }}</dt><dd>{{ preview.fingerprint }}</dd>
+        </dl>
+      </details>
+      <details v-if="preview.rows && preview.rows.length" :open="preview.chart && preview.chart.type === 'table'"><summary>{{ t('Rivit') }} ({{ preview.rows.length }})</summary>
+        <div style="overflow:auto;max-height:300px"><table>
+          <tr><th v-for="k in Object.keys(preview.rows[0])">{{ t(k) }}</th></tr>
+          <tr v-for="r in preview.rows.slice(0, 50)"><td v-for="v in Object.values(r)">{{ typeof v === 'number' ? fmt(v) : t(v) }}</td></tr>
+        </table></div>
+      </details>
+    </div>
+    <div class="modal" v-else-if="previewBusy">
+      <div class="skel" role="status" :aria-label="t('Ladataan esikatselua…')">
+        <div aria-hidden="true">
+          <div class="skeleton sk-h"></div>
+          <div class="skeleton sk-chart sm"></div>
+        </div>
+        <div class="sk-cap">{{ t('Ladataan esikatselua…') }}</div>
+      </div>
+    </div>
   </div>
 </div>
 
 <script>
 const { createApp, nextTick } = Vue;
 const charts = {};
+const sparks = {};
 let modalChart = null;
 function mixHex(a, b, t) {
   const pa = [1, 3, 5].map(i => parseInt(a.slice(i, i + 2), 16));
@@ -401,22 +629,50 @@ createApp({
   data: () => ({
     language: document.documentElement.lang === 'fi' ? 'fi' : 'en', languageLoading: false,
     theme: document.documentElement.dataset.theme === 'light' ? 'light' : 'dark',
-    roles: [], role: 'tehtaan_johtaja', brief: null, meter: null, question: '', busy: false, answers: [],
+    roles: [], role: 'tehtaan_johtaja', brief: null, cardCharts: {}, meter: null, question: '', busy: false, answers: [],
     sessionId: null, pendingRequest: false, registry: [], proposals: [], auditLog: [],
+    businessRequests: [], brFilter: { urgency: '', status: '', product: '', market: '', q: '' },
     modal: null, modalBusy: false, cardSeq: 0,
-    view: 'dash', dash: null, dashBusy: false, pinTarget: {}, pinnedBy: {},
+    showRetired: false, preview: null, previewBusy: false, previewSeq: 0,
+    view: 'dash', dash: null, dashBusy: false, pinnedBy: {},
   }),
   computed: {
     examples() { return EXAMPLES[this.language]; },
     locale() { return this.language === 'fi' ? 'fi-FI' : 'en-GB'; },
     roleLabel() { const r = this.roles.find(x => x.id === this.role); return r ? r.label : ''; },
     factoryRoles() { return this.roles.filter(r => r.id !== 'data_steward'); },
+    showBriefSide() {
+      const b = this.brief;
+      return this.view === 'dash' && this.role !== 'data_steward' && !!b
+        && !!(b.items.length || (b.deviations && b.deviations.length) || b.freshness);
+    },
+    visibleRegistry() { return this.showRetired ? this.registry : this.registry.filter(c => c.status !== 'retired'); },
+    brUrgencies() {
+      const rank = { urgent: 0, high: 1, normal: 2 };
+      return [...new Set((this.businessRequests || []).map(r => r.urgency))]
+        .sort((a, b) => (rank[a] ?? 3) - (rank[b] ?? 3));
+    },
+    brStatuses() { return [...new Set((this.businessRequests || []).map(r => r.status))].sort(); },
+    brProducts() { return [...new Set((this.businessRequests || []).map(r => r.product_context))].sort(); },
+    brMarkets() { return [...new Set((this.businessRequests || []).map(r => r.market_context))].sort(); },
+    filteredRequests() {
+      const f = this.brFilter;
+      const rank = { urgent: 0, high: 1, normal: 2 };
+      const q = (f.q || '').trim().toLowerCase();
+      return (this.businessRequests || [])
+        .filter(r => (!f.urgency || r.urgency === f.urgency) && (!f.status || r.status === f.status)
+          && (!f.product || r.product_context === f.product) && (!f.market || r.market_context === f.market)
+          && (!q || r.request_text.toLowerCase().includes(q) || String(r.request_id).toLowerCase().includes(q)))
+        .sort((a, b) => (rank[a.urgency] ?? 3) - (rank[b.urgency] ?? 3)
+          || String(b.request_date || '').localeCompare(String(a.request_date || '')));
+    },
     legendActual() { return this.t('Toteuma (actual-like)'); },
     legendForecast() { return this.t('Ennuste (forecast-like)'); },
     legendBlend() { return this.t('Sekoittunut väri = osittain ennusteperäistä'); },
   },
   async mounted() {
-    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') this.closeCard(); });
+      window.addEventListener('keydown', (e) => { if (e.key === 'Escape') { this.closeCard(); this.closePreview(); this.closePinMenus(); } });
+      window.addEventListener('click', (e) => { if (!(e.target.closest && e.target.closest('.pindd'))) this.closePinMenus(); });
     this.updateLanguage();
     try { await this.refresh(); } catch { alert(this.t('Pyyntö epäonnistui. Yritä uudelleen.')); }
   },
@@ -477,26 +733,30 @@ createApp({
       document.documentElement.dataset.theme = this.theme;
       try { localStorage.setItem('sinceai-theme', this.theme); } catch {}
       Object.values(charts).forEach(applyChartTheme);
+      Object.values(sparks).forEach(applyChartTheme);
     },
     async refresh() {
       const language = this.language, role = this.role;
-      const urls = ['/api/roles?language=' + language, '/api/briefing/' + role + '?language=' + language, '/api/meter'];
-      if (role === 'data_steward') urls.push('/api/registry', '/api/proposals', '/api/audit');
-      const [roles, brief, meter, registry, proposals, auditLog] = await Promise.all(urls.map(url => this.getJSON(url)));
+      const urls = ['/api/roles?language=' + language, '/api/briefing/' + role + '?language=' + language, '/api/meter',
+                    '/api/briefing/' + role + '/charts?language=' + language];
+      if (role === 'data_steward') urls.push('/api/registry', '/api/proposals', '/api/audit', '/api/business-requests');
+      const [roles, brief, meter, cardCharts, registry, proposals, auditLog, businessRequests] = await Promise.all(urls.map(url => this.getJSON(url)));
       if (language !== this.language || role !== this.role) return;
-      Object.assign(this, {roles, brief, meter});
+      Object.assign(this, {roles, brief, meter, cardCharts});
       if (role === 'data_steward') {
-        Object.assign(this, {registry, proposals, auditLog});
+        Object.assign(this, {registry, proposals, auditLog, businessRequests: businessRequests || []});
         this.pinnedBy = {};
         for (const r of this.factoryRoles) {
           this.pinnedBy[r.id] = (await this.getJSON('/api/dashboards/' + r.id + '?tiles=false')).pinned || [];
         }
-        this.registry.forEach(c => { if (this.factoryRoles.length && !(c.fingerprint in this.pinTarget)) this.pinTarget[c.fingerprint] = this.factoryRoles[0].id; });
-      } else if (this.view === 'dash') {
-        await this.loadDash();
+      } else {
+        this.clearSparks();
+        await nextTick();
+        this.drawSparks();
+        if (this.view === 'dash') await this.loadDash();
       }
     },
-    async setRole(r) { if (await this.newChat() === false) return; this.role = r; this.brief = null; this.dash = null; await this.refresh(); },
+    async setRole(r) { if (await this.newChat() === false) return; this.role = r; this.brief = null; this.cardCharts = {}; this.clearSparks(); this.dash = null; await this.refresh(); },
     async newChat() {
       if (this.busy) return false;
       if (this.sessionId && this.pendingRequest) {
@@ -514,7 +774,7 @@ createApp({
       Object.values(charts).forEach(c => c.destroy());
       for (const k in charts) delete charts[k];
     },
-    setView(v) { this.view = v; this.clearCharts(); if (v === 'dash') this.loadDash(); },
+    async setView(v) { this.view = v; this.clearCharts(); if (v === 'dash') { await nextTick(); this.drawSparks(); this.loadDash(); } },
     async loadDash() {
       if (this.role === 'data_steward') return;
       this.dashBusy = true;
@@ -570,6 +830,40 @@ createApp({
       if (charts[id]) charts[id].destroy();
       charts[id] = this.mkChart(el, chart, unit);
     },
+    mkSpark(el, chart) {
+      const horizontal = chart.type !== 'line';
+      const instance = new Chart(el, {
+        type: chart.type === 'line' ? 'line' : 'bar',
+        data: { labels: chart.labels.map(label => this.chartLabel(label)),
+                datasets: chart.datasets.map(d => ({ ...d, label: this.chartLabel(d.label), tension: 0, spanGaps: true,
+                  borderWidth: chart.type === 'line' ? 2 : 0, pointRadius: 2, pointHoverRadius: 4, borderRadius: 3,
+                  maxBarThickness: 16, barPercentage: 0.85, categoryPercentage: 0.85 })) },
+        options: { locale: this.locale, maintainAspectRatio: false, animation: false,
+          indexAxis: horizontal ? 'y' : 'x',
+          interaction: { mode: 'index', intersect: false },
+          plugins: { legend: { display: false, labels: {} },
+                     tooltip: { callbacks: { afterLabel: ctx => this.forecastTooltipLine(ctx) } } },
+          scales: horizontal
+            ? { x: { display: true, ticks: { font: { size: 9 }, maxRotation: 0, maxTicksLimit: 4 }, grid: { display: false }, border: {} },
+                y: { display: true, reverse: true, ticks: { font: { size: 9.5 } }, grid: { display: false }, border: {} } }
+            : { x: { display: false, ticks: {}, grid: {}, border: {} },
+                y: { display: false, ticks: {}, grid: {}, border: {} } } },
+      });
+      applyChartTheme(instance);
+      return instance;
+    },
+    drawSparks() {
+      for (const key in this.cardCharts) {
+        const el = document.getElementById('sc-' + key);
+        if (!el) continue;
+        if (sparks[key]) sparks[key].destroy();
+        sparks[key] = this.mkSpark(el, this.cardCharts[key]);
+      }
+    },
+    clearSparks() {
+      Object.values(sparks).forEach(c => c.destroy());
+      for (const k in sparks) delete sparks[k];
+    },
     drawModal() {
       const el = document.getElementById('modalchart');
       if (!el || !this.modal.chart) return;
@@ -581,7 +875,7 @@ createApp({
       this.modalBusy = true;
       this.modal = null;
       try {
-        const res = await fetch('/api/briefing/' + this.role + '/card/' + c.key);
+        const res = await fetch('/api/briefing/' + this.role + '/card/' + c.key + '?language=' + this.language);
         if (!res.ok) throw new Error(await res.text());
         const d = await res.json();
         if (seq !== this.cardSeq) return;
@@ -597,6 +891,27 @@ createApp({
       this.modalBusy = false;
       if (modalChart) { modalChart.destroy(); modalChart = null; }
     },
+    async openPreview(fp) {
+      const seq = ++this.previewSeq;
+      this.previewBusy = true;
+      this.preview = null;
+      try {
+        const res = await fetch('/api/registry/' + fp + '/preview');
+        if (!res.ok) throw new Error(await res.text());
+        const d = await res.json();
+        if (seq !== this.previewSeq) return;
+        this.preview = d;
+        await nextTick();
+        this.drawChart('previewchart', d.chart, d.unit);
+      } catch (e) { if (seq === this.previewSeq) alert(this.t('Virhe') + ': ' + e.message); }
+      if (seq === this.previewSeq) this.previewBusy = false;
+    },
+    closePreview() {
+      this.previewSeq++;
+      this.preview = null;
+      this.previewBusy = false;
+      if (charts['previewchart']) { charts['previewchart'].destroy(); delete charts['previewchart']; }
+    },
     async propose(fp, action) {
       await fetch('/api/registry/' + fp + '/propose', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) });
       await this.refresh();
@@ -608,16 +923,24 @@ createApp({
     },
     labelFor(id) { const r = this.roles.find(x => x.id === id); return r ? r.label : id; },
     rolesWherePinned(fp) { return Object.keys(this.pinnedBy).filter(r => (this.pinnedBy[r] || []).includes(fp)); },
-    async pin(fp) {
-      const role = this.pinTarget[fp] || (this.factoryRoles[0] || {}).id;
-      const res = await fetch('/api/dashboards/' + role + '/charts', { method: 'POST',
-        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fingerprint: fp }) });
-      if (!res.ok) alert('Kiinnitys epäonnistui: ' + await res.text());
+    async setPin(role, fp, on) {
+      if (on) {
+        const res = await fetch('/api/dashboards/' + role + '/charts', { method: 'POST',
+          headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fingerprint: fp }) });
+        if (!res.ok) alert(this.t('Kiinnitys epäonnistui:') + ' ' + await res.text());
+      } else {
+        await fetch('/api/dashboards/' + role + '/charts/' + fp, { method: 'DELETE' });
+      }
       await this.refresh();
     },
-    async unpin(role, fp) {
-      await fetch('/api/dashboards/' + role + '/charts/' + fp, { method: 'DELETE' });
-      await this.refresh();
+    pinSummary(fp) {
+      const pins = this.rolesWherePinned(fp).map(r => this.labelFor(r));
+      return pins.length ? pins.join(', ') : this.t('Ei kiinnitetty');
+    },
+    closePinMenus() { document.querySelectorAll('details.pindd[open]').forEach(d => { d.open = false; }); },
+    closeOtherPins(e) {
+      const dd = e.target.closest && e.target.closest('.pindd');
+      document.querySelectorAll('details.pindd[open]').forEach(d => { if (d !== dd) d.open = false; });
     },
     fmt(v) { return v == null ? '–' : (typeof v === 'number' ? v.toLocaleString(this.locale, { maximumFractionDigits: 1 }) : v); },
     deltaText(c) {
@@ -631,7 +954,7 @@ createApp({
     },
     askFrom(hint) {
       this.question = hint;
-      if (this.role !== 'data_steward' && this.view !== 'chat') this.setView('chat');
+      if (this.view !== 'chat') this.setView('chat');
       this.$nextTick(() => {
         if (this.$refs.input) {
           this.$refs.input.focus();

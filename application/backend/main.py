@@ -23,7 +23,16 @@ from .spec import InterpretationUnavailable
 
 app = FastAPI(title="Build Less assistant", version="0.1.0")
 STATIC = Path(__file__).resolve().parent.parent / "frontend"
-app.mount("/static", StaticFiles(directory=STATIC), name="static")
+
+
+class NoCacheStaticFiles(StaticFiles):
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
+app.mount("/static", NoCacheStaticFiles(directory=STATIC), name="static")
 
 
 class AskIn(BaseModel):
@@ -50,7 +59,7 @@ class PinIn(BaseModel):
 
 @app.get("/")
 def index():
-    return FileResponse(STATIC / "index.html")
+    return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/api/roles")
@@ -66,13 +75,21 @@ def get_briefing(role: str, language: Language = "en"):
 
 
 @app.get("/api/briefing/{role}/card/{key}")
-def get_card_detail(role: str, key: str):
+def get_card_detail(role: str, key: str, language: Language = "en"):
     if role not in config.ROLES:
         raise HTTPException(404, "unknown role")
     try:
-        return card_detail_mod.card_detail(role, key)
+        return card_detail_mod.card_detail(role, key, language)
     except KeyError:
         raise HTTPException(404, "unknown card")
+
+
+@app.get("/api/briefing/{role}/charts")
+def get_card_charts(role: str, language: Language = "en"):
+    """Compact charts for every briefing card, so cards can be visualised without a click."""
+    if role not in config.ROLES:
+        raise HTTPException(404, "unknown role")
+    return card_detail_mod.card_charts(role, language)
 
 
 @app.post("/api/ask")
@@ -115,6 +132,16 @@ def meter():
 @app.get("/api/registry")
 def registry():
     return engine.registry()
+
+
+@app.get("/api/registry/{fingerprint}/preview")
+def registry_preview(fingerprint: str):
+    try:
+        return engine.preview(fingerprint)
+    except KeyError:
+        raise HTTPException(404, "unknown chart")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
 
 
 @app.post("/api/registry/{fingerprint}/propose")
@@ -170,6 +197,12 @@ def unpin_chart(role: str, fingerprint: str):
 def proposals():
     return list(get_db().proposals.find({}, {"_id": 1, "fingerprint": 1, "title": 1, "action": 1, "status": 1,
                                              "decided_by": 1}).sort("created_at", -1))
+
+
+@app.get("/api/business-requests")
+def business_requests():
+    """Data-pack business request intake for the Data Steward's view, newest first."""
+    return list(get_db().business_requests.find({}, {"_id": 0, "_source": 0}).sort("request_date", -1))
 
 
 @app.get("/api/audit")

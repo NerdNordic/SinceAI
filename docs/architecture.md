@@ -89,6 +89,12 @@ in prompts and system instructions. Caches are separated by language. Switching
 language preserves conversation history and chart identity and does not translate
 previous model replies through additional LLM calls. Source identifiers stay intact.
 
+The Data Steward's governance view also lists the imported business requests
+(`GET /api/business-requests`): filterable by urgency, status, product and
+market, ordered urgency first, with an action that sends a request's text into
+the conversation for the reuse-before-build flow. The conversation is shared by
+all roles; factory roles keep their dashboard view.
+
 ## n8n and approvals
 
 The bundled [governance scan](../integrations/n8n/README.md) reads MongoDB directly every five minutes,

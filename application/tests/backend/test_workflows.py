@@ -278,10 +278,14 @@ def test_meter_and_briefings(client):
     b = client.get("/api/briefing/tehtaan_johtaja").json()
     otif = next(c for c in b["cards"] if c["key"] == "otif")
     assert otif["target"] == 95.0 and otif["lower_is_better"] is False
-    assert otif["ask_hint"] == "Näytä toimitusvarmuus kuukausittain"
+    assert otif["ask_hint"] == "Show monthly delivery reliability"
     urgent = next(c for c in b["cards"] if c["key"] == "urgent")
     assert urgent["target"] == 0 and urgent["lower_is_better"] is True
-    assert urgent["ask_hint"] == "Mitkä tilaukset pitää tehdä tällä viikolla?"
+    assert urgent["ask_hint"] == "Which orders need to be placed this week?"
+    fi = client.get("/api/briefing/tehtaan_johtaja?language=fi").json()
+    fi_hints = {c["key"]: c["ask_hint"] for c in fi["cards"] if "ask_hint" in c}
+    assert fi_hints["otif"] == "Näytä toimitusvarmuus kuukausittain"
+    assert fi_hints["urgent"] == "Mitkä tilaukset pitää tehdä tällä viikolla?"
 
 
 def test_briefing_deviations_follow_targets(client, monkeypatch):
@@ -308,7 +312,13 @@ def test_card_detail(client):
     assert d["description"] and d["kpi"]["id"] == "KPI-020" and d["kpi"]["definition"]
     assert d["chart"]["type"] == "line" and d["chart"]["labels"]
     assert d["chart"]["datasets"][0]["data"][-1] == pytest.approx(otif["value"], abs=0.051)
-    assert d["target"] == 95.0 and d["ask_hint"] and d["source"]
+    assert d["target"] == 95.0 and d["ask_hint"] == "Show monthly delivery reliability" and d["source"]
+    assert "On-Time In-Full" in d["description"] and "rows" in d["source"]
+    assert d["kpi"]["definition"] == "On-time in-full deliveries (%), averaged over rows."
+    fi = client.get("/api/briefing/tehtaan_johtaja/card/otif?language=fi").json()
+    assert fi["ask_hint"] == "Näytä toimitusvarmuus kuukausittain"
+    assert "Toimitusvarmuus" in fi["description"] and "riviä" in fi["source"]
+    assert fi["kpi"]["definition"] == "Ajallaan ja täysimääräisenä toimitettujen osuus (%), rivien keskiarvo."
     urgent = next(c for c in b["cards"] if c["key"] == "urgent")
     u = client.get("/api/briefing/tehtaan_johtaja/card/urgent").json()
     assert len(u["rows"]) == urgent["value"] and u["chart"]["labels"]
@@ -328,6 +338,34 @@ def test_card_detail(client):
     assert client.get("/api/briefing/x/card/otif").status_code == 404
 
 
+def test_card_charts(client):
+    """Each briefing card whose detail has a chart also ships a compact sparkline for inline rendering."""
+    for role in ("tehtaan_johtaja", "vuoropaallikko", "tuotantotyontekija"):
+        sparks = client.get(f"/api/briefing/{role}/charts").json()
+        cards = client.get(f"/api/briefing/{role}").json()["cards"]
+        assert set(sparks) <= {c["key"] for c in cards}, role
+        for c in cards:
+            full = client.get(f"/api/briefing/{role}/card/{c['key']}").json().get("chart") or {}
+            labels = full.get("labels") or []
+            if not labels:
+                assert c["key"] not in sparks, (role, c["key"])
+                continue
+            spark = sparks[c["key"]]
+            n = min(12 if full["type"] == "line" else 6, len(labels))
+            take = slice(-n, None) if full["type"] == "line" else slice(0, n)
+            assert spark["type"] == full["type"], (role, c["key"])
+            assert spark["labels"] == labels[take], (role, c["key"])
+            assert spark["datasets"][0]["data"] == full["datasets"][0]["data"][take], (role, c["key"])
+            if "forecastShare" in full["datasets"][0]:
+                assert spark["datasets"][0]["forecastShare"] == full["datasets"][0]["forecastShare"][take], (role, c["key"])
+    otif = client.get("/api/briefing/tehtaan_johtaja/charts").json()["otif"]
+    assert otif["type"] == "line" and any(s > 0 for s in otif["datasets"][0]["forecastShare"])
+    urgent = client.get("/api/briefing/tehtaan_johtaja/charts").json()["urgent"]
+    assert urgent["type"] == "bar" and len(urgent["labels"]) <= 6
+    assert client.get("/api/briefing/data_steward/charts").json() == {}
+    assert client.get("/api/briefing/x/charts").status_code == 404
+
+
 def test_propose_and_decide(client, monkeypatch):
     fp = ask(client, "Näytä toimitusvarmuus kuukausittain")["fingerprint"]
     p = client.post(f"/api/registry/{fp}/propose", json={"action": "certify"}).json()
@@ -340,6 +378,21 @@ def test_propose_and_decide(client, monkeypatch):
     chart = next(x for x in client.get("/api/registry").json() if x["fingerprint"] == fp)
     assert chart["status"] == "certified"
     assert any(e["event"] == "proposal_decided" for e in client.get("/api/audit").json())
+
+
+def test_business_requests_listing(client):
+    """The steward's business-requests view: the whole data-pack intake, newest first."""
+    r = client.get("/api/business-requests")
+    assert r.status_code == 200
+    reqs = r.json()
+    assert len(reqs) == 150
+    assert {"request_id", "request_date", "product_context", "market_context",
+            "request_text", "urgency", "status"} <= set(reqs[0])
+    assert all(x["urgency"] in ("urgent", "high", "normal") for x in reqs)
+    assert all(x["status"] in ("new", "triaged") for x in reqs)
+    dates = [x["request_date"] for x in reqs]
+    assert dates == sorted(dates, reverse=True)          # newest first; the UI re-ranks by urgency
+    assert "_id" not in reqs[0] and "_source" not in reqs[0]
 
 
 def test_llm_cache(client):
@@ -437,6 +490,21 @@ def test_dashboard_pin_unpin_retire(client):
     assert not any(t["fingerprint"] == fp for t in d["tiles"])
     events = [e["event"] for e in client.get("/api/audit").json()]
     assert "chart_pinned" in events and "chart_unpinned" in events
+
+
+def test_registry_preview_before_and_after_retirement(client):
+    fp = ask(client, "Nettomyynti kuukausittain", role="data_steward")["fingerprint"]   # active chart
+    r = client.get(f"/api/registry/{fp}/preview")
+    assert r.status_code == 200
+    d = r.json()
+    assert d["status"] == "active" and d["fingerprint"] == fp
+    assert d["chart"]["labels"] and d["chart"]["datasets"][0]["data"]
+    assert d["receipt"]["kpi"]["id"] == "KPI-001"
+    assert d["rows"]
+    p = client.post(f"/api/registry/{fp}/propose", json={"action": "retire"}).json()
+    client.post("/api/registry/decision", json={"proposal_id": p["proposal_id"], "approved": True})
+    assert client.get(f"/api/registry/{fp}/preview").status_code == 400                # retired -> no preview
+    assert client.get("/api/registry/cf-nope/preview").status_code == 404
 
 
 def test_dashboard_tile_error_is_isolated(client, monkeypatch):
@@ -554,3 +622,12 @@ def test_reuse_across_languages_keeps_identity(client, monkeypatch):
     chart = dbmod.get_db().chart_registry.find_one({"fingerprint": en["fingerprint"]})
     assert chart["titles"] == {"en": "Shipped units", "fi": "Toimitetut kappaleet"}
     assert len(dbmod.get_db().conversations.find_one({"_id": en["session_id"]})["turns"]) == 2
+
+
+def test_static_responses_always_revalidate(client):
+    index = client.get("/")
+    assert index.status_code == 200
+    assert index.headers["cache-control"] == "no-cache"
+    i18n = client.get("/static/i18n.js")
+    assert i18n.status_code == 200
+    assert i18n.headers["cache-control"] == "no-cache"

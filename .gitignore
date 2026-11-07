@@ -19,7 +19,7 @@ build/
 dist/
 out/
 output/
- ignore/
+ignore/
 
 # Local editor and OS files
 .idea/
