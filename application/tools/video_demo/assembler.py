@@ -4,8 +4,10 @@ Usage:
   python assembler.py --frames .work/frames --stamps .work/timestamps.json \
                      --out ../../output/sinceai-demo.mp4
 Gap handling: loading/Gemini waits are real demo moments, so gaps are clamped
-at 2.2s each - present but never dead air. Output is H.264 yuv420p with
-+faststart so the file streams from disk immediately.
+at 2.2s each - present but never dead air. Gaps straddling a recorder pause
+window (cuts.json, see recorder.cjs) are clamped at --cut-hold (0.5s) instead:
+one beat on the last frame, then the loaded content. Output is H.264 yuv420p
+with +faststart so the file streams from disk immediately.
 """
 
 import argparse
@@ -32,6 +34,10 @@ def main() -> int:
     ap.add_argument("--ffmpeg", default=None)
     ap.add_argument("--max-gap", type=float, default=2.2,
                     help="clamp per-frame gap seconds (default 2.2)")
+    ap.add_argument("--cuts", default=str(here / ".work" / "cuts.json"),
+                    help="recorder pause windows [start_ms, end_ms] to compress")
+    ap.add_argument("--cut-hold", type=float, default=0.5,
+                    help="gap seconds across a paused wait (default 0.5)")
     args = ap.parse_args()
 
     frames = Path(args.frames)
@@ -41,10 +47,22 @@ def main() -> int:
         print(f"too few frames: {n}", file=sys.stderr)
         return 1
 
+    cuts = []
+    cuts_path = Path(args.cuts)
+    if cuts_path.exists():
+        cuts = json.loads(cuts_path.read_text())
+
+    def overlaps_cut(t0: int, t1: int) -> bool:
+        return any(ws < t1 and we > t0 for ws, we in cuts)
+
     lines = ["ffconcat version 1.0"]
     for i, t in enumerate(stamps):
-        dur = (stamps[i + 1] - t) / 1000.0 if i + 1 < n else 0.08
-        dur = max(0.03, min(dur, args.max_gap))
+        if i + 1 < n:
+            dur = (stamps[i + 1] - t) / 1000.0
+            cap = args.cut_hold if overlaps_cut(t, stamps[i + 1]) else args.max_gap
+            dur = max(0.03, min(dur, cap))
+        else:
+            dur = 0.08
         lines.append(f"file 'frames/f{i:05d}.jpg'")
         lines.append(f"duration {dur:.3f}")
     lines.append(f"file 'frames/f{n - 1:05d}.jpg'")

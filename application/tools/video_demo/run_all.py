@@ -110,6 +110,8 @@ def main() -> int:
     ap.add_argument("--cdp", default=os.environ.get("VIDEO_DEMO_CDP", "http://127.0.0.1:9222"))
     ap.add_argument("--viewport", default="1400x900")
     ap.add_argument("--port", type=int, default=int(os.environ.get("VIDEO_DEMO_PORT", "8000")))
+    ap.add_argument("--cut-hold", type=float, default=0.5,
+                    help="gap seconds across a trimmed wait (assembler --cut-hold)")
     ap.add_argument("--keep-frames", action="store_true")
     args = ap.parse_args()
 
@@ -117,6 +119,7 @@ def main() -> int:
     work = HERE / ".work"
     frames = work / "frames"
     stamps = work / "timestamps.json"
+    cuts = work / "cuts.json"
     app_log = work / "app.log"
     work.mkdir(parents=True, exist_ok=True)
 
@@ -153,16 +156,21 @@ def main() -> int:
         # record
         rec_env = {**os.environ, "DEMO_BASE_URL": args.base_url, "DEMO_CDP": args.cdp,
                    "DEMO_W": str(w), "DEMO_H": str(h),
-                   "DEMO_FRAMES": str(frames), "DEMO_STAMPS": str(stamps)}
+                   "DEMO_FRAMES": str(frames), "DEMO_STAMPS": str(stamps),
+                   "DEMO_CUTS": str(cuts)}
         r = subprocess.run(["node", str(HERE / "recorder.cjs")], cwd=str(HERE), env=rec_env)
         if r.returncode != 0:
             print("recorder failed; see its output above", file=sys.stderr)
             return 1
 
         # assemble
-        r = subprocess.run([sys.executable, str(HERE / "assembler.py"),
-                            "--frames", str(frames), "--stamps", str(stamps),
-                            "--out", args.out, "--ffmpeg", ffmpeg])
+        asm_cmd = [sys.executable, str(HERE / "assembler.py"),
+                   "--frames", str(frames), "--stamps", str(stamps),
+                   "--out", args.out, "--ffmpeg", ffmpeg,
+                   "--cut-hold", str(args.cut_hold)]
+        if cuts.exists():
+            asm_cmd += ["--cuts", str(cuts)]
+        r = subprocess.run(asm_cmd)
         if r.returncode != 0:
             return 1
 
@@ -186,6 +194,7 @@ def main() -> int:
         if not args.keep_frames:
             shutil.rmtree(frames, ignore_errors=True)
             stamps.unlink(missing_ok=True)
+            cuts.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

@@ -30,6 +30,24 @@ Output lands in `output/sinceai-demo.mp4` (gitignored), 1400x900 H.264.
    drag. `run_all.py` verifies the result (meter deltas prove the
    REUSE/BUILD/REUSE story happened, duration sanity check).
 
+### Loading-state trimming
+
+The recorder **pauses the screencast during known waits** after a short
+"skeleton taste" and resumes when the content is ready; the pause windows are
+written to `.work/cuts.json` and the assembler compresses exactly those gaps
+to `--cut-hold` (default 0.5s - one beat on the last frame, then content):
+
+| Wait | Skeleton kept visible |
+| --- | --- |
+| Chat answers ("Gemini tulkitsee…") | up to ~1.6s of the real thinking state, then cut (answers that arrive sooner are never trimmed) |
+| Initial page load | ~0.4s flash |
+| Role switches | ~0.35s flash |
+| Preview modal | ~0.25s flash |
+| Language switches | ~0.3s flash |
+
+The taste durations are constants at the call sites in `recorder.cjs`
+(`trimLoad(...)` / `trimChat(...)`), so they are easy to tune.
+
 ## Demo questions and expected decisions
 
 | Question | Decision | Why |
@@ -67,7 +85,8 @@ Output lands in `output/sinceai-demo.mp4` (gitignored), 1400x900 H.264.
 ## Useful flags
 
 `--out PATH`, `--fast`, `--base-url URL`, `--cdp URL`, `--viewport WxH`,
-`--port N`, `--keep-frames`. Transient artifacts live in `.work/` (gitignored).
+`--port N`, `--cut-hold SECONDS`, `--keep-frames`. Transient artifacts live in
+`.work/` (gitignored).
 
 ## Using your real chart registry
 
