@@ -42,7 +42,10 @@ def briefing(role: str) -> dict[str, Any]:
         raise ValueError(role)
     r = config.ROLES[role]
     if role == "data_steward":
-        from .engine import meter, registry
+        if config.KPI_BACKEND == "n8n":
+            from .integration_store import meter, registry
+        else:
+            from .engine import meter, registry
 
         reg = registry()
         m = meter()
@@ -50,8 +53,8 @@ def briefing(role: str) -> dict[str, Any]:
             {"label": "Pyyntöjä", "value": m["requests"]},
             {"label": "Uusia kaavioita", "value": m["new_charts"]},
             {"label": "Hoidettu ilman uutta kaaviota", "value": m["handled_without_new_chart"]},
-            {"label": "Sertifiointiehdotuksia", "value": sum(1 for c in reg if c["suggestion"] == "certify")},
-            {"label": "Poistoehdotuksia", "value": sum(1 for c in reg if c["suggestion"] == "retire")},
+            {"label": "Sertifiointiehdotuksia", "value": sum(1 for c in reg if c.get("suggestion") == "certify")},
+            {"label": "Poistoehdotuksia", "value": sum(1 for c in reg if c.get("suggestion") == "retire")},
         ], "items": [], "freshness": None}
 
     plant = r["plant"]

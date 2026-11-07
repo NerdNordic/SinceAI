@@ -243,21 +243,25 @@ def _empty(spec: ChartSpec, m: Metric, query: dict, note: str) -> dict[str, Any]
 _repl_cache: dict[tuple, list[dict]] = {}
 
 
-def replenishment_results() -> list[dict[str, Any]]:
+def replenishment_results(*, refresh: bool = False) -> list[dict[str, Any]]:
     """Runout / reorder-by dates for every product x market, computed from MongoDB data."""
     from reorder.data import DataPack
     from reorder.model import Assumptions, compute_all
 
     db = get_db()
     key = (id(db), config.today())
-    if key not in _repl_cache:
+    if refresh or key not in _repl_cache:
         strip = {"_id": 0, "_source": 0, "embedding": 0}
         monthly = pd.DataFrame(list(db.product_market_monthly.find({}, strip)))
+        supply = pd.DataFrame(list(db.supply_operations.find({}, strip)))
+        if monthly.empty or supply.empty:
+            _repl_cache.pop(key, None)
+            return []
         monthly["month"] = pd.to_datetime(monthly["month"])
         monthly = monthly.sort_values(["product_id", "market_id", "month"]).reset_index(drop=True)
         pack = DataPack(
             monthly=monthly,
-            supply=pd.DataFrame(list(db.supply_operations.find({}, strip))),
+            supply=supply,
             products=pd.DataFrame(list(db.products.find({}, strip))),
             markets=pd.DataFrame(list(db.markets.find({}, strip))),
             kpis=pd.DataFrame(list(db.kpi_catalog.find({}, strip))),

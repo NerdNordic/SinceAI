@@ -22,7 +22,9 @@ def get_db():
 
         if not config.MONGODB_URI:
             raise RuntimeError("Set MONGODB_URI")
-        _db = MongoClient(config.MONGODB_URI, appname="since-ai-bot")[config.MONGODB_DB]
+        _db = MongoClient(config.MONGODB_URI, appname="since-ai-bot",
+                          serverSelectionTimeoutMS=5000, connectTimeoutMS=5000,
+                          socketTimeoutMS=15000)[config.MONGODB_DB]
     return _db
 
 

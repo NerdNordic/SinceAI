@@ -2,6 +2,10 @@
 
 **Bayer Challenge @ Since AI Hackathon 2026**
 
+## Current application
+
+The working application is in [`application/`](application/README.md): a Streamlit dashboard on port 8501 and a FastAPI service on port 8000. See the [launch instructions](application/README.md) and [n8n integration guide](application/INTEGRATION.md). Exported automation workflows belong in [`n8n_workflows/`](n8n_workflows/README.md).
+
 ## 📌 Project Overview
 Enterprise self-service BI creates speed, but also dashboard sprawl, duplicate logic, unclear ownership, and technical debt. This project aims to solve this by introducing an **AI-powered Analytics Dashboard Factory**.
 
