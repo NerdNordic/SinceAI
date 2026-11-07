@@ -60,6 +60,163 @@ def post(client, question, sid=None, language="en", **extra):
                                        "session_id": sid, "language": language, **extra})
 
 
+@pytest.mark.parametrize("status, attempts", [(400, 1), (401, 1), (403, 1), (404, 1), (429, 5), (503, 5)])
+def test_provider_retry_policy(monkeypatch, status, attempts):
+    from google.genai.errors import APIError
+
+    calls = []
+    monkeypatch.setattr(specmod.time, "sleep", lambda seconds: None)
+
+    def fail():
+        calls.append(True)
+        raise APIError(status, {"error": {"message": "provider failure"}})
+
+    with pytest.raises(APIError):
+        specmod._retrying(fail)
+    assert len(calls) == attempts
+
+
+def test_provider_diagnostic_does_not_expose_sensitive_details(sandbox, monkeypatch, caplog):
+    from google.genai.errors import APIError
+
+    client, _ = sandbox
+
+    def fail(*args):
+        raise APIError(400, {"error": {"message": "private prompt and secret key"}})
+
+    monkeypatch.setattr(specmod, "_call_gemini", fail)
+    response = post(client, "Show net sales")
+    assert response.status_code == 503
+    assert "provider_status=400" in caplog.text
+    assert "category=provider_error" in caplog.text
+    assert "private prompt" not in caplog.text + response.text
+    assert "secret key" not in caplog.text + response.text
+
+
+def test_invalid_model_response_is_not_retried(monkeypatch, caplog):
+    calls = []
+    monkeypatch.setattr(specmod.time, "sleep", lambda seconds: pytest.fail("validation retry"))
+
+    def fail():
+        calls.append(True)
+        return Interpretation.model_validate_json('{"private": "sensitive response"}')
+
+    with pytest.raises(specmod.ValidationError) as error:
+        specmod._retrying(fail)
+    specmod._log_interpretation_failure(error.value)
+    assert len(calls) == 1
+    assert "category=invalid_model_response" in caplog.text
+    assert "sensitive response" not in caplog.text
+
+
+@pytest.mark.parametrize("model", ["gemma-4-26b-a4b-it", "models/gemma-4-31b-it", "gemini-3.5-flash"])
+def test_interpretation_transport_preserves_validation_and_language(monkeypatch, model):
+    from types import SimpleNamespace
+
+    calls = []
+    expected = interpreted(outcome="ASK")
+
+    def generate(**kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(parsed=None, text=expected.model_dump_json())
+
+    monkeypatch.setattr(config, "GEMINI_MODEL", model)
+    monkeypatch.setattr("backend.vector_store._gemini",
+                        lambda: SimpleNamespace(models=SimpleNamespace(generate_content=generate)))
+    assert specmod._call_gemini("Synthetic input", "fi") == expected
+    assert len(calls) == 1
+    cfg = calls[0]["config"]
+    assert "Finnish" in cfg.system_instruction
+    assert cfg.max_output_tokens == 4096
+    if "gemma-" in model:
+        assert cfg.response_schema is None and cfg.response_mime_type is None
+        assert json.dumps(Interpretation.model_json_schema(), ensure_ascii=False) in cfg.system_instruction
+        assert "Do not include Markdown fences" in cfg.system_instruction
+        assert cfg.thinking_config.thinking_level.value.lower() == "minimal"
+    else:
+        assert cfg.response_schema is Interpretation
+        assert cfg.response_mime_type == "application/json"
+
+
+@pytest.mark.parametrize("text", ['{"spec": {"metric": "invented"}}', '```json\n{}\n```', ''])
+def test_gemma_invalid_output_fails_closed_after_one_repair(monkeypatch, text):
+    from types import SimpleNamespace
+
+    calls = []
+
+    def generate(**kwargs):
+        calls.append(True)
+        return SimpleNamespace(parsed=None, text=text)
+
+    monkeypatch.setattr(config, "GEMINI_MODEL", "gemma-4-26b-a4b-it")
+    monkeypatch.setattr("backend.vector_store._gemini",
+                        lambda: SimpleNamespace(models=SimpleNamespace(generate_content=generate)))
+    monkeypatch.setattr(specmod.time, "sleep", lambda seconds: pytest.fail("invalid output retry"))
+    with pytest.raises(specmod.ValidationError):
+        specmod._call_gemini("Synthetic input")
+    assert len(calls) == 2
+
+
+def test_invalid_enum_is_repaired_without_replaying_untrusted_output(monkeypatch, caplog):
+    from types import SimpleNamespace
+
+    calls = []
+    expected = interpreted(outcome="ASK")
+    invalid = expected.model_dump()
+    invalid["brief"]["scope"] = "private untrusted provider content"
+
+    def generate(**kwargs):
+        calls.append(kwargs)
+        text = json.dumps(invalid) if len(calls) == 1 else expected.model_dump_json()
+        return SimpleNamespace(parsed=None, text=text)
+
+    monkeypatch.setattr(config, "GEMINI_MODEL", "gemma-4-26b-a4b-it")
+    monkeypatch.setattr("backend.vector_store._gemini",
+                        lambda: SimpleNamespace(models=SimpleNamespace(generate_content=generate)))
+    assert specmod._call_gemini("Original user request", "fi") == expected
+    assert len(calls) == 2
+    assert "Original user request" in calls[1]["contents"]
+    assert '"path": ["brief", "scope"]' in calls[1]["contents"]
+    assert "private untrusted provider content" not in calls[1]["contents"] + caplog.text
+    assert "Finnish" in calls[1]["config"].system_instruction
+
+
+def test_fenced_complete_json_needs_no_extra_call(monkeypatch):
+    from types import SimpleNamespace
+
+    calls = []
+    expected = interpreted(outcome="ASK")
+
+    def generate(**kwargs):
+        calls.append(True)
+        return SimpleNamespace(parsed=None, text="```json\n" + expected.model_dump_json() + "\n```")
+
+    monkeypatch.setattr("backend.vector_store._gemini",
+                        lambda: SimpleNamespace(models=SimpleNamespace(generate_content=generate)))
+    assert specmod._call_gemini("Synthetic input") == expected
+    assert len(calls) == 1
+
+
+def test_repair_provider_failure_does_not_start_another_retry_loop(monkeypatch):
+    from types import SimpleNamespace
+    from google.genai.errors import APIError
+
+    calls = []
+
+    def generate(**kwargs):
+        calls.append(True)
+        if len(calls) == 1:
+            return SimpleNamespace(parsed=None, text="not JSON")
+        raise APIError(503, {"error": {"message": "provider unavailable"}})
+
+    monkeypatch.setattr("backend.vector_store._gemini",
+                        lambda: SimpleNamespace(models=SimpleNamespace(generate_content=generate)))
+    monkeypatch.setattr(specmod.time, "sleep", lambda seconds: pytest.fail("nested retry loop"))
+    with pytest.raises(APIError):
+        specmod._call_gemini("Synthetic input")
+    assert len(calls) == 2
+
+
 def test_clear_request_proceeds_without_business_interview(sandbox, monkeypatch):
     client, db = sandbox
     monkeypatch.setattr(specmod, "_call_gemini", lambda *args: interpreted(usage="one_off"))

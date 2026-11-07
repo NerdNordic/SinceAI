@@ -170,6 +170,46 @@ Reuse the returned `session_id` for follow-up questions. Language defaults to
 English; unsupported values are rejected with HTTP 422. A valid role and a
 non-blank question are required. Identifiers remain unchanged across languages.
 
+## Troubleshooting `/api/ask` HTTP 503
+
+The API returns a generic, translated error when request interpretation fails.
+The backend terminal logs `Request interpretation failed` with the model,
+exception type, category and provider HTTP status. It does not log provider
+messages, prompts, responses or API keys.
+
+Hosted Gemma models receive the interpretation JSON Schema in the system
+instruction: the tested `gemma-4-26b-a4b-it` endpoint rejected this application's
+API `response_schema` with HTTP 400 while accepting text and system instructions.
+Gemini models still use API-enforced structured output. Both paths must pass the
+same local Pydantic validation and deterministic intake checks; malformed or empty
+output fails safely and leaves pending clarification state intact. A complete
+JSON document wrapped in a Markdown code fence is accepted only after the same
+validation. A validation failure allows one corrective generation, using only
+the original request and bounded schema error paths/types. Invalid output is
+never replayed into the repair prompt. The repair call has no automatic retry
+loop; a second failure is returned safely. Normal provider retries are capped
+at five attempts, so a request makes at most six generation attempts including
+repair. The model is not switched automatically.
+
+Gemma 4 interpretation calls disable internal thinking with
+[`thinking_level="minimal"`](https://ai.google.dev/gemma/docs/core/gemma_on_gemini_api#thinking)
+to reserve the bounded output budget for the JSON response.
+
+- `provider_error`, status 400: check the configured model's support for the
+  structured response schema and system instructions.
+- Status 401/403: check API key validity and access; 404: check model availability.
+- Status 429: check quota/rate limits; 5xx: the provider failed after retries.
+- `invalid_model_response`: the output still failed JSON/schema validation after
+  the corrective generation. The next log line lists bounded paths/types without
+  exposing response values.
+- `client_or_configuration_error`: check the exception type and local settings,
+  including `GEMINI_API_KEY` in `application/.env`.
+
+Restart the backend after changing `.env`, then retry once and inspect the
+diagnostic line preceding the HTTP 503. Permanent provider 4xx errors (except
+408/429) are not retried automatically. Schema correction is limited to the one
+additional generation described above.
+
 ## Development and verification
 
 Run from this folder:

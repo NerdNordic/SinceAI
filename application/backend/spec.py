@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import time
 from datetime import datetime, timezone
 from typing import Any, Literal
@@ -19,7 +20,8 @@ from . import config
 from .i18n import LANGUAGES, Language, metric_label
 from .intake import RequestBrief
 
-PROMPT_VERSION = "v6-request-intake"
+PROMPT_VERSION = "v8-bounded-intake-repair"
+logger = logging.getLogger(__name__)
 
 MetricName = Literal[
     "Net Sales", "Net Sales Growth", "Units Shipped", "Inventory Coverage", "On-Time In-Full",
@@ -183,17 +185,63 @@ Warnings: {json.dumps(payload['warnings'], ensure_ascii=False)}"""
 # --------------------------------------------------------------------------- gemini calls
 
 def _retrying(call):
+    from google.genai.errors import APIError
+
     from . import vector_store as vs
 
     for attempt in range(5):
         try:
             return call()
         except Exception as exc:  # noqa: BLE001
-            if attempt == 4 or "API key" in str(exc) or "GEMINI_API_KEY" in str(exc):
+            permanent = isinstance(exc, APIError) and 400 <= exc.code < 500 and exc.code not in (408, 429)
+            if (attempt == 4 or permanent or isinstance(exc, ValidationError)
+                    or "API key" in str(exc) or "GEMINI_API_KEY" in str(exc)):
                 raise
             limited = "429" in str(exc) or "RESOURCE_EXHAUSTED" in str(exc)
             time.sleep(vs._retry_delay(exc) or (30 if limited else 2 ** attempt))
     raise RuntimeError("unreachable")
+
+
+def _validation_issues(exc: ValidationError) -> list[dict[str, Any]]:
+    """Return bounded schema diagnostics without input, messages or exception context."""
+    schema = Interpretation.model_json_schema()
+    fields = {name for node in [schema, *schema.get("$defs", {}).values()]
+              for name in node.get("properties", {})}
+    return [{"path": [part if isinstance(part, int) or part in fields else "item"
+                       for part in error["loc"][:6]], "type": error["type"]}
+            for error in exc.errors(include_input=False, include_context=False, include_url=False)[:8]]
+
+
+def _log_interpretation_failure(exc: Exception) -> None:
+    """Log diagnostic metadata only: provider messages may contain sensitive input."""
+    from google.genai.errors import APIError
+
+    if isinstance(exc, APIError):
+        category = "provider_error"
+        status = exc.code
+    elif isinstance(exc, ValidationError):
+        category = "invalid_model_response"
+        status = None
+    else:
+        category = "client_or_configuration_error"
+        status = None
+    logger.error("Request interpretation failed: category=%s provider_status=%s exception=%s model=%r",
+                 category, status, type(exc).__name__, config.GEMINI_MODEL[:100])
+    if isinstance(exc, ValidationError):
+        logger.error("Interpretation validation issues: %s", json.dumps(_validation_issues(exc)))
+
+
+def _parse_interpretation(response: Any) -> Interpretation:
+    parsed = getattr(response, "parsed", None)
+    if isinstance(parsed, Interpretation):
+        return parsed
+    text = (response.text or "").strip()
+    # Accept a whole fenced JSON document, never extract JSON from surrounding
+    # prose or accept a partial object. Its contents still undergo full validation.
+    lines = text.splitlines()
+    if len(lines) >= 3 and lines[0].lower() in ("```json", "```") and lines[-1] == "```":
+        text = "\n".join(lines[1:-1])
+    return Interpretation.model_validate_json(text)
 
 
 def _call_gemini(prompt: str, language: Language = "en") -> Interpretation:
@@ -203,16 +251,40 @@ def _call_gemini(prompt: str, language: Language = "en") -> Interpretation:
 
     client = vs._gemini()
 
-    def call():
-        resp = client.models.generate_content(
-            model=config.GEMINI_MODEL, contents=prompt,
-            config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=Interpretation,
-                                               temperature=0, max_output_tokens=4096,
-                                               system_instruction=_language_instruction(language)))
-        parsed = getattr(resp, "parsed", None)
-        return parsed if isinstance(parsed, Interpretation) else Interpretation.model_validate_json(resp.text)
+    # The hosted Gemma endpoint rejects our Interpretation response_schema (400).
+    # Describe the contract in the system instruction instead; local Pydantic
+    # validation and the deterministic intake gate remain mandatory.
+    instruction = _language_instruction(language)
+    response_format = {}
+    if config.GEMINI_MODEL.rsplit("/", 1)[-1].startswith("gemma-"):
+        instruction += ("\nReturn exactly one JSON object matching this JSON Schema. "
+                        "Do not include Markdown fences, commentary or additional text.\n"
+                        + json.dumps(Interpretation.model_json_schema(), ensure_ascii=False))
+        if config.GEMINI_MODEL.rsplit("/", 1)[-1].startswith("gemma-4-"):
+            # Reserve the output budget for the JSON rather than internal thinking.
+            response_format["thinking_config"] = types.ThinkingConfig(thinking_level="minimal")
+    else:
+        response_format = {"response_mime_type": "application/json", "response_schema": Interpretation}
 
-    return _retrying(call)
+    def call(contents=prompt):
+        return client.models.generate_content(
+            model=config.GEMINI_MODEL, contents=contents,
+            config=types.GenerateContentConfig(**response_format, temperature=0, max_output_tokens=4096,
+                                               system_instruction=instruction))
+
+    try:
+        response = _retrying(call)
+        return _parse_interpretation(response)
+    except ValidationError as exc:
+        issues = json.dumps(_validation_issues(exc))
+        logger.warning("Regenerating invalid interpretation once: issues=%s", issues)
+        # One corrective generation, no nested retry loop and no replay of invalid
+        # model output. Only the original request and trusted schema diagnostics
+        # are supplied; a second invalid response fails closed without state writes.
+        repair_prompt = (prompt + "\n\nRegenerate the complete Interpretation JSON for the same request. "
+                         "The previous output failed schema validation at these paths/types: " + issues
+                         + ". Use exactly the schema keys and enum values. Do not invent missing user choices.")
+        return _parse_interpretation(call(repair_prompt))
 
 
 def _language_instruction(language: Language) -> str:
@@ -294,6 +366,7 @@ def generate_spec(question: str, role: str, history: list[dict[str, Any]] | None
     try:
         parsed = _call_gemini(_prompt(question, role, hints, history, language, pending_request, intake_mode), language)
     except Exception as exc:
+        _log_interpretation_failure(exc)
         raise InterpretationUnavailable("Interpretation unavailable") from exc
     # Compatibility for existing internal fakes/callers returning a ChartSpec. The
     # deterministic intake gate still validates it; production uses Interpretation.
@@ -305,6 +378,7 @@ def generate_spec(question: str, role: str, history: list[dict[str, Any]] | None
         try:
             parsed = Interpretation.model_validate(parsed)
         except ValidationError as exc:
+            _log_interpretation_failure(exc)
             raise InterpretationUnavailable("Invalid interpretation") from exc
     db.llm_cache.replace_one({"_id": key}, {"_id": key, "kind": "spec", "question": question, "role": role,
                                             "interpretation": parsed.model_dump(), "hints": hints,
