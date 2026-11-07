@@ -16,9 +16,10 @@ STATUS_FI = {"STOCKOUT_RISK": "loppumisriski", "ORDER_NOW": "tilaa nyt", "URGENT
 
 
 def _plant_otif(plant: str) -> tuple[float | None, str | None]:
-    """Mean OTIF of the plant's product x markets in the latest month with actual-like rows."""
+    """Mean OTIF of the plant's product x markets in the latest month.
+    Same definition as the On-Time In-Full chart (all rows), so briefing and chat never disagree."""
     pairs = {k for k, v in lookups()["plant"].items() if v == plant}
-    df = pd.DataFrame(list(get_db().product_market_monthly.find({"value_type": ACTUAL},
+    df = pd.DataFrame(list(get_db().product_market_monthly.find({},
                                                                 {"_id": 0, "product_id": 1, "market_id": 1, "month": 1, "otif_pct_syn": 1})))
     if df.empty:
         return None, None

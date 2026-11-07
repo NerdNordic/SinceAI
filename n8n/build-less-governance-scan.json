@@ -1,0 +1,219 @@
+{
+  "name": "Build Less – governance-skannaus (MongoDB)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "4e2607df-b994-49b6-b942-9c6fb62d330a",
+      "name": "Joka 5. minuutti",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "find",
+        "collection": "chart_registry",
+        "query": "{ \"status\": { \"$in\": [\"active\", \"certified\"] } }",
+        "options": {
+          "projection": "{ \"embedding\": 0, \"embedding_text\": 0, \"spec\": 0 }"
+        }
+      },
+      "id": "af016822-236f-41ce-a34a-e8ae7a1a2173",
+      "name": "Hae kaaviot",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        0
+      ],
+      "credentials": {
+        "mongoDb": {
+          "id": "",
+          "name": "MongoDB Atlas (bayer_hackathon)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "find",
+        "collection": "proposals",
+        "query": "{ \"status\": \"pending\" }",
+        "options": {}
+      },
+      "id": "4d9fefab-2b72-4a00-9523-37cd2f48074c",
+      "name": "Hae odottavat ehdotukset",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        0
+      ],
+      "credentials": {
+        "mongoDb": {
+          "id": "",
+          "name": "MongoDB Atlas (bayer_hackathon)"
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Samat säännöt kuin backendin rekisterissä:\n//  - sertifioi: tila active ja vähintään 2 roolia tai vähintään 3 käyttökertaa (RULE-005)\n//  - poista:    tila active/certified eikä käyttöä RETIRE_IDLE_MINUTES-aikaan (demo: 5)\nconst RETIRE_IDLE_MINUTES = 43200;   // 30 vrk; demossa esim. 5\nconst now = new Date();\nconst charts = $('Hae kaaviot').all().map(i => i.json).filter(c => c.fingerprint);\nconst pending = new Set(\n  $('Hae odottavat ehdotukset').all().map(i => i.json)\n    .filter(p => p.fingerprint && p.status === 'pending')\n    .map(p => p.fingerprint + ':' + p.action)\n);\nconst out = [];\nfor (const c of charts) {\n  const roles = c.used_by_roles || [];\n  const uses = c.use_count || 0;\n  const last = new Date(c.last_used_at || c.created_at || now);\n  let action = null;\n  if (c.status === 'active' && (roles.length >= 2 || uses >= 3)) action = 'certify';\n  else if (['active', 'certified'].includes(c.status) && (now - last) / 60000 > RETIRE_IDLE_MINUTES) action = 'retire';\n  if (!action || pending.has(c.fingerprint + ':' + action)) continue;\n  const id = [...Array(10)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');\n  out.push({ json: {\n    _id: id, fingerprint: c.fingerprint, title: c.title, action, status: 'pending',\n    evidence: { use_count: uses, used_by_roles: roles, last_used_at: String(c.last_used_at || ''), owner: c.owner, kpi_ids: c.kpi_ids || [] },\n    created_at: now.toISOString(), source: 'n8n governance scan',\n  } });\n}\nreturn out;"
+      },
+      "id": "84339d09-3e64-48a8-b825-454ec41d8ff6",
+      "name": "Valitse ehdotettavat",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "proposals",
+        "fields": "_id,fingerprint,title,action,status,evidence,created_at,source",
+        "options": {
+          "dateFields": "created_at"
+        }
+      },
+      "id": "efaa810d-9bf6-4ff5-b250-17ea8fb1c3be",
+      "name": "Tallenna ehdotus",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        0
+      ],
+      "credentials": {
+        "mongoDb": {
+          "id": "",
+          "name": "MongoDB Atlas (bayer_hackathon)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(i => ({ json: {\n  ts: new Date().toISOString(), event: 'proposal_created', proposal_id: i.json._id,\n  fingerprint: i.json.fingerprint, action: i.json.action, title: i.json.title, source: 'n8n governance scan' } }));"
+      },
+      "id": "47c98807-512f-4fa8-996f-d358999b2535",
+      "name": "Audit-merkintä",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "audit_log",
+        "fields": "ts,event,proposal_id,fingerprint,action,title,source",
+        "options": {
+          "dateFields": "ts"
+        }
+      },
+      "id": "8e805873-2ff2-4d8b-94ff-69081afa4610",
+      "name": "Kirjaa audit logiin",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        0
+      ],
+      "credentials": {
+        "mongoDb": {
+          "id": "",
+          "name": "MongoDB Atlas (bayer_hackathon)"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Joka 5. minuutti": {
+      "main": [
+        [
+          {
+            "node": "Hae kaaviot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hae kaaviot": {
+      "main": [
+        [
+          {
+            "node": "Hae odottavat ehdotukset",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hae odottavat ehdotukset": {
+      "main": [
+        [
+          {
+            "node": "Valitse ehdotettavat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valitse ehdotettavat": {
+      "main": [
+        [
+          {
+            "node": "Tallenna ehdotus",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tallenna ehdotus": {
+      "main": [
+        [
+          {
+            "node": "Audit-merkintä",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audit-merkintä": {
+      "main": [
+        [
+          {
+            "node": "Kirjaa audit logiin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

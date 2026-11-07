@@ -23,6 +23,7 @@ STATIC = Path(__file__).resolve().parent / "static"
 class AskIn(BaseModel):
     role: str
     question: str
+    session_id: str | None = None   # same id = same conversation (follow-up questions)
 
 
 class ProposeIn(BaseModel):
@@ -58,7 +59,15 @@ def ask(body: AskIn):
         raise HTTPException(404, "unknown role")
     if not body.question.strip():
         raise HTTPException(400, "empty question")
-    return engine.ask(body.question.strip(), body.role)
+    return engine.ask(body.question.strip(), body.role, body.session_id)
+
+
+@app.get("/api/conversations/{session_id}")
+def conversation(session_id: str):
+    conv = get_db().conversations.find_one({"_id": session_id})
+    if not conv:
+        raise HTTPException(404, "unknown conversation")
+    return conv
 
 
 @app.get("/api/results/{result_id}/raw.csv")

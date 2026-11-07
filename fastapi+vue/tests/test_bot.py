@@ -18,7 +18,7 @@ pytestmark = pytest.mark.skipif(not XLSX, reason="DATA_PACK_XLSX not set")
 ROOT = Path(__file__).resolve().parent.parent
 
 os.environ["TODAY"] = "2026-11-06"
-os.environ.pop("GEMINI_API_KEY", None)        # no network: embeddings and search fall back
+os.environ["GEMINI_API_KEY"] = ""   # no network (also blocks .env from setting it): embeddings and search fall back
 
 from app import db as dbmod, engine, spec as specmod  # noqa: E402
 from app.spec import ChartSpec, Filters  # noqa: E402
@@ -33,7 +33,11 @@ FAKE = {
     "mikä on budjettipoikkeama?": ChartSpec(metric="UNSUPPORTED", understood=False, clarification_question="Budjettidataa ei ole hallitussa datassa. Tarkoititko ennustepoikkeamaa?"),
     "myynnin kasvu markkinoittain": ChartSpec(metric="Net Sales Growth", dimensions=["market"], title="Myynnin kasvu"),
     "ennustepoikkeama tuotteittain toteumasta": ChartSpec(metric="Forecast Variance", dimensions=["product"], actuals_only=True, title="Ennustepoikkeama"),
+    # follow-up and chat
+    "entä plant b?": ChartSpec(metric="On-Time In-Full", dimensions=["month"], filters=Filters(plants=["Plant-B"]), chart_type="line", title="Toimitusvarmuus kuukausittain, Plant B"),
+    "mitä osaat?": ChartSpec(metric="UNSUPPORTED", mode="chat", reply="Voin näyttää tehtaan luvut ja kaaviot hallituilla määritelmillä."),
 }
+PROMPTS: list[str] = []
 
 
 @pytest.fixture(scope="module")
@@ -49,6 +53,7 @@ def client():
     dbmod.set_db(db)
 
     def fake_gemini(prompt: str) -> ChartSpec:
+        PROMPTS.append(prompt)
         q = prompt.rsplit('"""', 2)[-2].strip().lower()
         return FAKE[q].model_copy(deep=True)
 
@@ -59,8 +64,8 @@ def client():
     return TestClient(app)
 
 
-def ask(client, q, role="tehtaan_johtaja"):
-    r = client.post("/api/ask", json={"role": role, "question": q})
+def ask(client, q, role="tehtaan_johtaja", session_id=None):
+    r = client.post("/api/ask", json={"role": role, "question": q, "session_id": session_id})
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -156,3 +161,38 @@ def test_llm_cache(client):
     ask(client, "Myynnin kasvu markkinoittain")       # asked before -> served from llm_cache
     specmod._call_gemini = orig
     assert calls == []
+
+
+def test_followup_uses_conversation(client):
+    first = ask(client, "Näytä toimitusvarmuus kuukausittain")
+    sid = first["session_id"]
+    assert first["answer"]                                     # text answer (fallback without Gemini)
+    follow = ask(client, "Entä Plant B?", session_id=sid)
+    assert follow["session_id"] == sid
+    assert follow["decision"] == "EXTEND" and follow["fingerprint"] == first["fingerprint"]
+    assert "Conversation so far" in PROMPTS[-1] and "Näytä toimitusvarmuus kuukausittain" in PROMPTS[-1]
+    conv = client.get(f"/api/conversations/{sid}").json()
+    assert [t["q"] for t in conv["turns"]] == ["Näytä toimitusvarmuus kuukausittain", "Entä Plant B?"]
+
+
+def test_chat_mode_does_not_count_as_request(client):
+    before = client.get("/api/meter").json()["requests"]
+    a = ask(client, "Mitä osaat?")
+    assert a["decision"] == "CHAT" and "hallituilla" in a["answer"]
+    assert client.get("/api/meter").json()["requests"] == before
+
+
+def test_fallback_answer_uses_computed_numbers(client):
+    a = ask(client, "Näytä toimitusvarmuus kuukausittain")
+    last_month, last_value = a["chart"]["labels"][-1], a["chart"]["datasets"][0]["data"][-1]
+    assert last_month in a["answer"] and f"{last_value:g}" in a["answer"]
+    r = ask(client, "Mitkä tilaukset pitää tehdä tällä viikolla?", role="vuoropaallikko")
+    assert r["rows"][0]["tuote"] in r["answer"]
+
+
+
+def test_briefing_and_chart_agree_on_otif(client):
+    b = client.get("/api/briefing/tehtaan_johtaja").json()
+    card = next(c for c in b["cards"] if c["label"].startswith("OTIF"))
+    a = ask(client, "Näytä toimitusvarmuus kuukausittain")
+    assert round(a["chart"]["datasets"][0]["data"][-1], 1) == card["value"]

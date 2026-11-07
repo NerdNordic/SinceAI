@@ -14,7 +14,7 @@ from typing import Any
 
 from . import config, metrics
 from .db import get_db
-from .spec import ChartSpec, generate_spec
+from .spec import ChartSpec, generate_spec, write_answer
 
 DECISIONS = ["REUSE", "EXTEND", "ANSWER", "BUILD", "CLARIFY"]
 ACTIVE = ["active", "certified"]
@@ -85,17 +85,58 @@ def _register(spec: ChartSpec, fp: str, role: str, question: str) -> dict[str, A
     return get_db().chart_registry.find_one({"fingerprint": fp}, {"embedding": 0})
 
 
-def ask(question: str, role: str) -> dict[str, Any]:
+def _save_turn(session_id: str, role: str, turn: dict[str, Any]) -> None:
+    turn["ts"] = now()
+    get_db().conversations.update_one(
+        {"_id": session_id},
+        {"$push": {"turns": turn}, "$set": {"role": role, "updated_at": now()}, "$setOnInsert": {"created_at": now()}},
+        upsert=True)
+
+
+def fallback_answer(spec: ChartSpec, result: dict[str, Any]) -> str:
+    """Deterministic one-liner when Gemini is not available. Uses only computed values."""
+    rows = result["rows"]
+    unit = result["unit"]
+    if not rows:
+        return "Valinnoilla ei löytynyt dataa."
+    if spec.metric == "Replenishment Reorder-By Date":
+        r = rows[0]
+        return (f"{len(rows)} tuote–markkina-paria. Kiireellisin: {r['tuote']} → {r['markkina']}, "
+                f"tilaa viimeistään {r['tilaa_viimeistaan']} ({r['tila']}).")
+    chart = result["chart"]
+    if "month" in spec.dimensions and chart["datasets"] and len(chart["labels"]) >= 2:
+        d = chart["datasets"][0]
+        vals = [(m, v) for m, v in zip(chart["labels"], d["data"]) if v is not None]
+        if len(vals) >= 2:
+            (pm, pv), (lm, lv) = vals[-2], vals[-1]
+            trend = "noussut" if lv > pv else "laskenut" if lv < pv else "pysynyt ennallaan"
+            return f"{d['label']}: {lv:g} {unit} ({lm}), {trend} edellisestä ({pv:g} {unit}, {pm})."
+    top = rows[0]
+    label = " · ".join(str(v) for k, v in top.items() if k != "arvo") or spec.metric
+    return f"{spec.title}: {label} {top['arvo']:g} {unit}." if top.get("arvo") is not None else spec.title
+
+
+def ask(question: str, role: str, session_id: str | None = None) -> dict[str, Any]:
     db = get_db()
-    spec, meta = generate_spec(question, role)
-    base = {"question": question, "role": role, "spec": spec.model_dump(), "llm_cached": meta["cached"],
-            "kpi_hints": meta.get("hints", [])}
+    session_id = session_id or uuid.uuid4().hex[:12]
+    conv = db.conversations.find_one({"_id": session_id}) or {}
+    history = conv.get("turns", [])
+    spec, meta = generate_spec(question, role, history)
+    base = {"question": question, "role": role, "session_id": session_id, "spec": spec.model_dump(),
+            "llm_cached": meta["cached"], "kpi_hints": meta.get("hints", [])}
+
+    if spec.mode == "chat":
+        answer = spec.reply or ("Voin näyttää tehtaan luvut ja kaaviot hallituilla määritelmillä: "
+                                + ", ".join(metrics.METRICS) + ". Kysy esimerkiksi, mitä pitää tilata tällä viikolla.")
+        _save_turn(session_id, role, {"q": question, "decision": "CHAT", "answer": answer})
+        return {**base, "decision": "CHAT", "answer": answer}
 
     if not spec.understood or spec.metric == "UNSUPPORTED":
         msg = spec.clarification_question or (
             "En löytänyt tähän hallittua mittaria. Voin näyttää: " + ", ".join(k for k in metrics.METRICS) + ".")
         db.request_log.insert_one({"ts": now(), "role": role, "question": question, "decision": "CLARIFY"})
-        return {**base, "decision": "CLARIFY", "rule": "RULE-002", "reason": msg}
+        _save_turn(session_id, role, {"q": question, "decision": "CLARIFY", "answer": msg})
+        return {**base, "decision": "CLARIFY", "rule": "RULE-002", "reason": msg, "answer": msg}
 
     fp = fingerprint(spec)
     existing = db.chart_registry.find_one({"fingerprint": fp, "status": {"$in": ACTIVE}}, {"embedding": 0})
@@ -128,8 +169,20 @@ def ask(question: str, role: str) -> dict[str, Any]:
                            "created_at": now()})
     db.request_log.insert_one({"ts": now(), "role": role, "question": question, "decision": decision,
                                "fingerprint": fp, "metric": spec.metric})
+
+    warnings = result["receipt"].get("warnings", [])
+    payload = {"metric": spec.metric, "unit": result["unit"], "decision": decision, "decision_reason": reason,
+               "rows": result["rows"][:15], "warnings": warnings}
+    answer = write_answer(question, payload) or fallback_answer(spec, result)
+    kpi = result["receipt"].get("kpi", {})
+    src = result["receipt"].get("source", {})
+    receipt_brief = (f"KPI {kpi.get('id')} {kpi.get('name')} ({kpi.get('definition_status')}); "
+                     f"{result['receipt'].get('definition', '')} Source {src.get('sheet') or src.get('collection')}, "
+                     f"{src.get('rows_used')} rows. Warnings: {'; '.join(warnings) or 'none'}")
+    _save_turn(session_id, role, {"q": question, "decision": decision, "spec": spec.model_dump(), "title": title,
+                                  "answer": answer, "receipt_brief": receipt_brief})
     return {
-        **base, "decision": decision, "rule": rule, "reason": reason, "fingerprint": fp, "title": title,
+        **base, "decision": decision, "rule": rule, "reason": reason, "answer": answer, "fingerprint": fp, "title": title,
         "chart_status": chart_status, "result_id": result_id, "unit": result["unit"], "chart": result["chart"],
         "rows": result["rows"], "receipt": result["receipt"],
         "similar_charts": _similar_charts(spec, fp, question), "related_reports": _related_reports(spec),
