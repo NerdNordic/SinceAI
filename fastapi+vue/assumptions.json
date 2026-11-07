@@ -1,0 +1,60 @@
+{
+  "_comment": "Governed planning assumptions. None of these values exist in the Bayer builder data pack; they are explicit, documented and adjustable. Every result records the version and hash of the file it was computed with.",
+  "version": "0.1.0",
+  "status": "draft",
+  "owner": "Supply Analytics Lead (to be assigned)",
+  "approved_by": null,
+  "effective_from": "2026-11-06",
+  "review_by": "2027-02-06",
+
+  "weeks_per_month": 4.345,
+
+  "demand": {
+    "basis": "trailing_actual_mean",
+    "window_actual_months": 3,
+    "min_actual_months": 2,
+    "stale_actuals_after_months": 3,
+    "volatility_window_actual_months": 6,
+    "volatile_cv_threshold": 0.5
+  },
+
+  "inventory": {
+    "primary_source": "supply_operations",
+    "_primary_source_options": "supply_operations | product_market_monthly",
+    "conflict_threshold_weeks": 1.0
+  },
+
+  "lead_time_weeks": {
+    "_comment": "Total replenishment lead time = release & dispatch from the supply source's finished-goods stock (QA release, picking, documentation) + transport (by primary mode). Manufacturing time is NOT included: the data pack has no production capacity or batch data.",
+    "production_release": {
+      "Plant-A": 1.0,
+      "Plant-B": 1.0,
+      "Plant-C": 1.0,
+      "External-CMO": 2.0
+    },
+    "transport": {
+      "air": 0.5,
+      "road": 1.0,
+      "mixed": 2.0,
+      "sea": 4.0
+    },
+    "expedite_mode": "air"
+  },
+
+  "reliability": {
+    "_comment": "Late deliveries extend effective lead time: LT_eff = LT + (1 - OTIF) * late_delivery_penalty_weeks.",
+    "late_delivery_penalty_weeks": 2.0
+  },
+
+  "safety_stock": {
+    "_comment": "Safety stock is driven by forecast error (from forecast accuracy), not by raw shipment volatility.",
+    "service_level": 0.95,
+    "mape_to_sigma": 1.25,
+    "early_runout_quantile": 0.9
+  },
+
+  "status_thresholds_days": {
+    "urgent": 14,
+    "plan": 42
+  }
+}
