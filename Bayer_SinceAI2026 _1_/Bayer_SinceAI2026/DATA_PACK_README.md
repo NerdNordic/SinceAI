@@ -2,7 +2,7 @@
 
 Rendered from the `START_HERE` and `Package_Overview` worksheets of
 `Bayer_Pharmaceuticals_SinceAI_2026_FINAL_Builder_Data_Pack.xlsx` (v2.0).
-The dataset itself is loaded into `bayer_sinceai.db` (SQLite) by `load_xlsx_to_sqlite.py`.
+The active application imports this workbook into MongoDB with `fastapi+vue/seed_mongo.py`.
 
 ## Challenge
 
@@ -95,35 +95,9 @@ Lynkuet 140, Beyonttra 140, Hyrnuo 140.
 - Production path: a production implementation would replace synthetic sheets with approved
   catalog, Power BI/Fabric APIs, lineage, usage and governed pharma business data.
 
-## Using the SQLite database
+## Using the data pack
 
-```python
-import sqlite3
-
-con = sqlite3.connect("bayer_sinceai.db")
-for row in con.execute(
-    "SELECT asset_name, platform, lifecycle_status FROM Analytics_Assets LIMIT 5"
-):
-    print(row)
-```
-
-Note: this folder lives on a virtiofs mount, where SQLite's default rollback
-journal fails ("attempt to write a readonly database"). Plain SELECTs are
-unaffected. If you ever write to the database from Python, set
-`con.execute("PRAGMA journal_mode=MEMORY")` first, or rebuild it with the
-loader below.
-
-One table per worksheet (names and row counts above; 22 tables, 8,120 rows total).
-Convenience views:
-
-- `v_asset_monthly` — assets × monthly usage (+ owner / workspace / semantic model)
-- `v_governance` — governance signals × asset × owner
-- `v_migration` — migration backlog × asset × target model × usage totals
-- `v_product_monthly` — product-market-month × product / market names
-- `v_kpi_conflicts` — KPI variants grouped by canonical metric
-
-Rebuild the database any time with:
-
-```bash
-python3 load_xlsx_to_sqlite.py
-```
+The workbook is the source fixture for the MongoDB importer and offline regression tests.
+See [data import instructions](../../fastapi+vue/DATA_IMPORT.md) for the import and
+vector-search tools. The application computes governed metrics from MongoDB;
+the test suite loads the workbook into an isolated in-memory database.

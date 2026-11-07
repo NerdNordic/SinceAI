@@ -1,4 +1,0 @@
-# govagent — governed-analytics agent (tool-calling loop, LLM client,
-# 12 evidence-first tools over the read-only SQLite estate).
-# Everything else is the Python standard library (sqlite3, json, os, pathlib).
-openai>=1.40

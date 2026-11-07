@@ -15,6 +15,7 @@ from typing import Any
 from . import config, metrics
 from .db import get_db
 from .spec import ChartSpec, generate_spec, write_answer
+from .i18n import Language, metric_label, role_label, text
 
 DECISIONS = ["REUSE", "EXTEND", "ANSWER", "BUILD", "CLARIFY"]
 ACTIVE = ["active", "certified"]
@@ -60,10 +61,10 @@ def _related_reports(spec: ChartSpec) -> list[dict[str, Any]]:
         return []
 
 
-def _register(spec: ChartSpec, fp: str, role: str, question: str) -> dict[str, Any]:
+def _register(spec: ChartSpec, fp: str, role: str, question: str, language: Language = "en") -> dict[str, Any]:
     m = metrics.METRICS[spec.metric]
     chart = {
-        "fingerprint": fp, "title": spec.title,
+        "fingerprint": fp, "title": spec.title, "titles": {language: spec.title}, "language": language,
         "description": f"{spec.metric} by {', '.join(spec.dimensions) or 'total'}. Asked: {question}",
         "role": role, "plant": (spec.filters.plants or [None])[0], "kpi_ids": [m.kpi_id],
         "spec": spec.model_dump(), "filters": spec.filters.model_dump(),
@@ -93,16 +94,19 @@ def _save_turn(session_id: str, role: str, turn: dict[str, Any]) -> None:
         upsert=True)
 
 
-def fallback_answer(spec: ChartSpec, result: dict[str, Any]) -> str:
+def fallback_answer(spec: ChartSpec, result: dict[str, Any], language: Language = "en") -> str:
     """Deterministic one-liner when Gemini is not available. Uses only computed values."""
     rows = result["rows"]
     unit = result["unit"]
     if not rows:
-        return "Valinnoilla ei löytynyt dataa."
+        return text("Valinnoilla ei löytynyt dataa.", language)
     if spec.metric == "Replenishment Reorder-By Date":
         r = rows[0]
-        return (f"{len(rows)} tuote–markkina-paria. Kiireellisin: {r['tuote']} → {r['markkina']}, "
-                f"tilaa viimeistään {r['tilaa_viimeistaan']} ({r['tila']}).")
+        from .briefing import STATUS_FI
+
+        return text("{count} tuote–markkina-paria. Kiireellisin: {product} → {market}, tilaa viimeistään {date} ({status}).",
+                    language, count=len(rows), product=r["tuote"], market=r["markkina"],
+                    date=r["tilaa_viimeistaan"], status=text(STATUS_FI[r["tila"]], language))
     chart = result["chart"]
     if "month" in spec.dimensions and chart["datasets"] and len(chart["labels"]) >= 2:
         d = chart["datasets"][0]
@@ -110,59 +114,65 @@ def fallback_answer(spec: ChartSpec, result: dict[str, Any]) -> str:
         if len(vals) >= 2:
             (pm, pv), (lm, lv) = vals[-2], vals[-1]
             trend = "noussut" if lv > pv else "laskenut" if lv < pv else "pysynyt ennallaan"
-            return f"{d['label']}: {lv:g} {unit} ({lm}), {trend} edellisestä ({pv:g} {unit}, {pm})."
+            return text("{label}: {value} {unit} ({month}), {trend} edellisestä ({previous} {unit}, {previous_month}).",
+                        language, label=d["label"], value=f"{lv:g}", unit=unit, month=lm,
+                        trend=text(trend, language), previous=f"{pv:g}", previous_month=pm)
     top = rows[0]
     label = " · ".join(str(v) for k, v in top.items() if k != "arvo") or spec.metric
     return f"{spec.title}: {label} {top['arvo']:g} {unit}." if top.get("arvo") is not None else spec.title
 
 
-def ask(question: str, role: str, session_id: str | None = None) -> dict[str, Any]:
+def ask(question: str, role: str, session_id: str | None = None, language: Language = "en") -> dict[str, Any]:
     db = get_db()
     session_id = session_id or uuid.uuid4().hex[:12]
     conv = db.conversations.find_one({"_id": session_id}) or {}
     history = conv.get("turns", [])
-    spec, meta = generate_spec(question, role, history)
+    spec, meta = generate_spec(question, role, history, language)
     base = {"question": question, "role": role, "session_id": session_id, "spec": spec.model_dump(),
-            "llm_cached": meta["cached"], "kpi_hints": meta.get("hints", [])}
+            "llm_cached": meta["cached"], "kpi_hints": meta.get("hints", []), "language": language}
 
     if spec.mode == "chat":
-        answer = spec.reply or ("Voin näyttää tehtaan luvut ja kaaviot hallituilla määritelmillä: "
-                                + ", ".join(metrics.METRICS) + ". Kysy esimerkiksi, mitä pitää tilata tällä viikolla.")
+        answer = spec.reply or text(
+            "Voin näyttää tehtaan luvut ja kaaviot hallituilla määritelmillä: {metrics}. Kysy esimerkiksi, mitä pitää tilata tällä viikolla.",
+            language, metrics=", ".join(metric_label(k, language) for k in metrics.METRICS))
         _save_turn(session_id, role, {"q": question, "decision": "CHAT", "answer": answer})
         return {**base, "decision": "CHAT", "answer": answer}
 
     if not spec.understood or spec.metric == "UNSUPPORTED":
-        msg = spec.clarification_question or (
-            "En löytänyt tähän hallittua mittaria. Voin näyttää: " + ", ".join(k for k in metrics.METRICS) + ".")
+        msg = spec.clarification_question or text("En löytänyt tähän hallittua mittaria. Voin näyttää: {metrics}.",
+                                                language, metrics=", ".join(metric_label(k, language) for k in metrics.METRICS))
         db.request_log.insert_one({"ts": now(), "role": role, "question": question, "decision": "CLARIFY"})
         _save_turn(session_id, role, {"q": question, "decision": "CLARIFY", "answer": msg})
         return {**base, "decision": "CLARIFY", "rule": "RULE-002", "reason": msg, "answer": msg}
 
     fp = fingerprint(spec)
     existing = db.chart_registry.find_one({"fingerprint": fp, "status": {"$in": ACTIVE}}, {"embedding": 0})
-    result = metrics.compute(spec)
+    result = metrics.compute(spec, language)
 
     if existing:
         same = existing.get("filters") == spec.filters.model_dump()
         decision = "REUSE" if same else "EXTEND"
-        db.chart_registry.update_one({"fingerprint": fp}, {"$inc": {"use_count": 1}, "$set": {"last_used_at": now()},
+        db.chart_registry.update_one({"fingerprint": fp}, {"$inc": {"use_count": 1}, "$set": {"last_used_at": now(), f"titles.{language}": spec.title},
                                                            "$addToSet": {"used_by_roles": role}})
         created = existing.get("created_at")
         if isinstance(created, datetime):
             from zoneinfo import ZoneInfo
             created = (created if created.tzinfo else created.replace(tzinfo=timezone.utc)).astimezone(ZoneInfo("Europe/Helsinki"))
-        reason = (f"Sama kaavio on jo olemassa: \"{existing['title']}\" (omistaja {existing['owner']}"
-                  f"{', luotu ' + created.strftime('%d.%m. klo %H.%M') if isinstance(created, datetime) else ''}). "
-                  + ("Näytetään päivitetyllä datalla." if same else "Näytetään sama kaavio uusilla suodattimilla, uutta kaaviota ei luotu."))
-        title, chart_status, rule = existing["title"], existing["status"], "RULE-001"
+        created_text = text(", luotu {date}", language, date=created.strftime("%Y-%m-%d %H:%M")) if isinstance(created, datetime) else ""
+        owner = role_label(existing["role"], language) if existing.get("role") in config.ROLES else text(existing["owner"], language)
+        reason = text('Sama kaavio on jo olemassa: "{title}" (omistaja {owner}{created}). {action}',
+                      language, title=spec.title, owner=owner, created=created_text,
+                      action=text("Näytetään päivitetyllä datalla." if same else
+                                  "Näytetään sama kaavio uusilla suodattimilla, uutta kaaviota ei luotu.", language))
+        title, chart_status, rule = spec.title, existing["status"], "RULE-001"
     elif spec.intent == "one_off":
         decision, rule, chart_status, title = "ANSWER", "RULE-001", None, spec.title
-        reason = "Kertaluonteinen kysymys: luku lasketaan hallitulla määritelmällä, mutta kaaviota ei tallenneta rekisteriin."
+        reason = text("Kertaluonteinen kysymys: luku lasketaan hallitulla määritelmällä, mutta kaaviota ei tallenneta rekisteriin.", language)
     else:
-        reg = _register(spec, fp, role, question)
+        reg = _register(spec, fp, role, question, language)
         decision, rule, chart_status, title = "BUILD", "RULE-002, RULE-003", reg["status"], spec.title
-        reason = (f"Vastaavaa kaaviota ei löytynyt rekisteristä. Uusi kaavio rekisteröitiin: omistaja "
-                  f"{reg['owner']}, kanoninen KPI {metrics.METRICS[spec.metric].kpi_id}, tarkistus {reg['review_by']}.")
+        reason = text("Vastaavaa kaaviota ei löytynyt rekisteristä. Uusi kaavio rekisteröitiin: omistaja {owner}, kanoninen KPI {kpi}, tarkistus {date}.",
+                      language, owner=role_label(role, language), kpi=metrics.METRICS[spec.metric].kpi_id, date=reg["review_by"])
 
     result_id = uuid.uuid4().hex[:12]
     db.results.insert_one({"_id": result_id, "fingerprint": fp, "metric": spec.metric, "source": result["source"],
@@ -173,7 +183,7 @@ def ask(question: str, role: str, session_id: str | None = None) -> dict[str, An
     warnings = result["receipt"].get("warnings", [])
     payload = {"metric": spec.metric, "unit": result["unit"], "decision": decision, "decision_reason": reason,
                "rows": result["rows"][:15], "warnings": warnings}
-    answer = write_answer(question, payload) or fallback_answer(spec, result)
+    answer = write_answer(question, payload, language) or fallback_answer(spec, result, language)
     kpi = result["receipt"].get("kpi", {})
     src = result["receipt"].get("source", {})
     receipt_brief = (f"KPI {kpi.get('id')} {kpi.get('name')} ({kpi.get('definition_status')}); "

@@ -8,7 +8,8 @@ import pandas as pd
 
 from . import config
 from .db import get_db, lookups
-from .metrics import ACTUAL, replenishment_results
+from .i18n import Language, role_label, text, transport_label
+from .metrics import replenishment_results
 
 URGENT = ("STOCKOUT_RISK", "ORDER_NOW")
 STATUS_FI = {"STOCKOUT_RISK": "loppumisriski", "ORDER_NOW": "tilaa nyt", "URGENT": "kiireellinen",
@@ -38,12 +39,12 @@ def _with_targets(cards):
     return cards
 
 
-def _dev_message(card):
+def _dev_message(card, language):
     unit = f" {card['unit']}" if card.get("unit") else ""
-    return f"{card['label']}: {_fi(card['value'])}{unit} vs tavoite {_fi(card['target'])}{unit}."
+    return f"{card['label']}: {_fi(card['value'])}{unit} {text('vs tavoite', language)} {_fi(card['target'])}{unit}."
 
 
-def _deviations(cards):
+def _deviations(cards, language):
     """Deviations derived from target breaches, sorted high -> low severity."""
     devs = []
     for c in cards:
@@ -53,7 +54,7 @@ def _deviations(cards):
         within = c["value"] <= t["target"] if t["lower_is_better"] else c["value"] >= t["target"]
         if not within:
             devs.append({"severity": t["severity"], "card_key": c["key"],
-                         "message": _dev_message(c)})
+                         "message": _dev_message(c, language)})
     return sorted(devs, key=lambda d: _SEVERITY_ORDER[d["severity"]])
 
 
@@ -72,15 +73,16 @@ def _plant_otif(plant: str) -> tuple[float | None, str | None]:
     return round(float(df[df["month"] == latest]["otif_pct_syn"].mean()), 1), pd.Timestamp(latest).strftime("%Y-%m")
 
 
-def _item(r: dict[str, Any]) -> dict[str, Any]:
+def _item(r: dict[str, Any], language: Language) -> dict[str, Any]:
     exp = r["expedite"]
     return {"product": r["product_name"], "market": r["market_name"], "status": r["status"],
-            "status_fi": STATUS_FI[r["status"]], "reorder_by": r["reorder_by_recommended"],
+            "status_fi": STATUS_FI[r["status"]], "status_label": text(STATUS_FI[r["status"]], language), "reorder_by": r["reorder_by_recommended"],
             "runout": r["runout_date_p50"], "weekly_units": r["weekly_demand_units"],
-            "expedite": f"{exp['mode']} viimeistään {exp['latest_order_date']}" if exp and exp["feasible"] else None}
+            "expedite": text("{mode} viimeistään {date}", language, mode=transport_label(exp["mode"], language), date=exp["latest_order_date"])
+            if exp and exp["feasible"] else None}
 
 
-def briefing(role: str) -> dict[str, Any]:
+def briefing(role: str, language: Language = "en") -> dict[str, Any]:
     if role not in config.ROLES:
         raise ValueError(role)
     r = config.ROLES[role]
@@ -89,13 +91,13 @@ def briefing(role: str) -> dict[str, Any]:
 
         reg = registry()
         m = meter()
-        return {"role": r["label"], "cards": [
-            {"key": "requests", "label": "Pyyntöjä", "value": m["requests"]},
-            {"key": "new_charts", "label": "Uusia kaavioita", "value": m["new_charts"]},
-            {"key": "handled", "label": "Hoidettu ilman uutta kaaviota", "value": m["handled_without_new_chart"]},
-            {"key": "certify_suggestions", "label": "Sertifiointiehdotuksia",
+        return {"role": role_label(role, language), "cards": [
+            {"key": "requests", "label": text('Pyyntöjä', language), "value": m["requests"]},
+            {"key": "new_charts", "label": text('Uusia kaavioita', language), "value": m["new_charts"]},
+            {"key": "handled", "label": text('Hoidettu ilman uutta kaaviota', language), "value": m["handled_without_new_chart"]},
+            {"key": "certify_suggestions", "label": text('Sertifiointiehdotuksia', language),
              "value": sum(1 for c in reg if c["suggestion"] == "certify")},
-            {"key": "retire_suggestions", "label": "Poistoehdotuksia",
+            {"key": "retire_suggestions", "label": text('Poistoehdotuksia', language),
              "value": sum(1 for c in reg if c["suggestion"] == "retire")},
         ], "items": [], "freshness": None, "deviations": []}
 
@@ -107,35 +109,36 @@ def briefing(role: str) -> dict[str, Any]:
     weekly = round(sum(x["weekly_demand_units"] for x in rows))
     expeditable = [x for x in rows if x["expedite"] and x["expedite"]["feasible"]]
     conflicts = sum(1 for x in rows if "INVENTORY_SOURCE_CONFLICT" in x["flags"])
-    freshness = (f"Data: kuukausitaso, viimeisin {otif_month}. Varastotilanne {rows[0]['as_of'] if rows else '-'}. "
-                 f"{conflicts} tuote–markkina-parilla varastolähteet ovat ristiriidassa.")
+    freshness = text(
+        "Data: kuukausitaso, viimeisin {month}. Varastotilanne {date}. {conflicts} tuote–markkina-parilla varastolähteet ovat ristiriidassa.",
+        language, month=otif_month, date=rows[0]["as_of"] if rows else "-", conflicts=conflicts)
 
     if role == "tehtaan_johtaja":
         cards = [
-            {"key": "pairs", "label": "Tuote–markkina-pareja", "value": len(rows)},
-            {"key": "urgent", "label": "Loppumisriski / tilaa nyt", "value": len(urgent),
+            {"key": "pairs", "label": text('Tuote–markkina-pareja', language), "value": len(rows)},
+            {"key": "urgent", "label": text('Loppumisriski / tilaa nyt', language), "value": len(urgent),
              "tone": "critical" if urgent else None},
-            {"key": "urgent14", "label": "Kiireelliset (≤ 14 pv)",
+            {"key": "urgent14", "label": text('Kiireelliset (≤ 14 pv)', language),
              "value": sum(1 for x in rows if x["status"] == "URGENT"), "tone": "warning"},
             {"key": "otif", "label": f"OTIF {otif_month}", "value": otif, "unit": "%"},
-            {"key": "volume", "label": "Volyymi", "value": weekly, "unit": "kpl/vko"},
+            {"key": "volume", "label": text('Volyymi', language), "value": weekly, "unit": text("kpl/vko", language)},
         ]
-        items = [_item(x) for x in rows[:5]]
+        items = [_item(x, language) for x in rows[:5]]
     elif role == "vuoropaallikko":
         cards = [
-            {"key": "urgent", "label": "Tilattava nyt", "value": len(urgent),
+            {"key": "urgent", "label": text('Tilattava nyt', language), "value": len(urgent),
              "tone": "critical" if urgent else None},
-            {"key": "week_orders", "label": "Tilattava tällä viikolla", "value": len(this_week), "tone": "warning"},
-            {"key": "expedite", "label": "Pelastettavissa lentokuljetuksella", "value": len(expeditable)},
+            {"key": "week_orders", "label": text('Tilattava tällä viikolla', language), "value": len(this_week), "tone": "warning"},
+            {"key": "expedite", "label": text('Pelastettavissa lentokuljetuksella', language), "value": len(expeditable)},
         ]
-        items = [_item(x) for x in (urgent + [x for x in this_week if x not in urgent])[:8]]
+        items = [_item(x, language) for x in (urgent + [x for x in this_week if x not in urgent])[:8]]
     else:  # tuotantotyontekija
         cards = [
-            {"key": "priority", "label": "Priorisoitavia tuotteita",
+            {"key": "priority", "label": text('Priorisoitavia tuotteita', language),
              "value": len(urgent) + sum(1 for x in rows if x["status"] == "URGENT")},
-            {"key": "volume", "label": "Tehtaan volyymi", "value": weekly, "unit": "kpl/vko"},
+            {"key": "volume", "label": text('Tehtaan volyymi', language), "value": weekly, "unit": text("kpl/vko", language)},
         ]
-        items = [_item(x) for x in rows[:5]]
+        items = [_item(x, language) for x in rows[:5]]
     cards = _with_targets(cards)
-    return {"role": r["label"], "plant": plant, "cards": cards, "items": items,
-            "freshness": freshness, "deviations": _deviations(cards)}
+    return {"role": role_label(role, language), "plant": plant, "cards": cards, "items": items,
+            "freshness": freshness, "deviations": _deviations(cards, language)}
