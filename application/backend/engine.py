@@ -19,6 +19,8 @@ from . import config, metrics
 from .db import get_db
 from .spec import ChartSpec, generate_spec, write_answer
 from .i18n import Language, metric_label, role_label, text
+from . import intake
+from .spec import _sanitize
 
 DECISIONS = ["REUSE", "EXTEND", "ANSWER", "BUILD", "CLARIFY"]
 ACTIVE = ["active", "certified"]
@@ -118,12 +120,32 @@ def _register(spec: ChartSpec, fp: str, role: str, question: str, language: Lang
     return get_db().chart_registry.find_one({"fingerprint": fp}, {"embedding": 0})
 
 
-def _save_turn(session_id: str, role: str, turn: dict[str, Any]) -> None:
+def _save_turn(session_id: str, role: str, turn: dict[str, Any], pending_request=None) -> None:
     turn["ts"] = now()
-    get_db().conversations.update_one(
-        {"_id": session_id},
-        {"$push": {"turns": turn}, "$set": {"role": role, "updated_at": now()}, "$setOnInsert": {"created_at": now()}},
-        upsert=True)
+    update = {"$push": {"turns": turn}, "$set": {"role": role, "updated_at": now()}, "$setOnInsert": {"created_at": now()}}
+    if pending_request is None:
+        update["$unset"] = {"pending_request": ""}
+    else:
+        update["$set"]["pending_request"] = pending_request.model_dump()
+    get_db().conversations.update_one({"_id": session_id}, update, upsert=True)
+
+
+def _clarify(base, brief, spec, questions, limitations, alternatives, evidence, outcome="ASK", unresolved_questions=None):
+    status_messages = {"verified": "reuse_verified", "needs_verification": "reuse_check", "none": "reuse_none", "unavailable": "reuse_unavailable"}
+    if evidence["status"] in status_messages:
+        evidence["message"] = intake.message(status_messages[evidence["status"]], base["language"])
+    pending = intake.PendingRequest(original_request=brief.original_request, brief=brief,
+                                    unresolved_questions=unresolved_questions or questions, latest_questions=questions,
+                                    alternatives=alternatives, draft_spec=spec.model_dump())
+    answer = "\n\n".join(q.text for q in questions)
+    _save_turn(base["session_id"], base["role"], {"q": base["question"], "decision": "CLARIFY",
+               "answer": answer, "brief": brief.model_dump(), "spec": spec.model_dump()}, pending)
+    get_db().request_log.insert_one({"ts": now(), "role": base["role"], "question": base["question"], "decision": "CLARIFY"})
+    return {**base, "decision": "CLARIFY", "rule": "RULE-002", "reason": answer, "answer": answer,
+            "brief": brief.model_dump(), "suggestions": _suggestions(brief.original_request, base["language"]),
+            "intake": {"outcome": outcome, "mode": brief.mode, "questions": [q.model_dump() for q in questions],
+                       "limitations": [v for v in limitations if not v.endswith("?")],
+                       "alternatives": [a.model_dump() for a in alternatives], "reuse": evidence, "pending": True}}
 
 
 def fallback_answer(spec: ChartSpec, result: dict[str, Any], language: Language = "en") -> str:
@@ -165,16 +187,41 @@ def fallback_answer(spec: ChartSpec, result: dict[str, Any], language: Language 
     return f"{spec.title}: {label} {top['arvo']:g} {unit}." if top.get("arvo") is not None else spec.title
 
 
-def ask(question: str, role: str, session_id: str | None = None, language: Language = "en") -> dict[str, Any]:
+def ask(question: str, role: str, session_id: str | None = None, language: Language = "en", abandon_pending: bool = False) -> dict[str, Any]:
     db = get_db()
     session_id = session_id or uuid.uuid4().hex[:12]
     conv = db.conversations.find_one({"_id": session_id}) or {}
     history = conv.get("turns", [])
-    spec, meta = generate_spec(question, role, history, language)
+    if abandon_pending:
+        answer = intake.message("abandoned", language)
+        _save_turn(session_id, role, {"q": "", "decision": "CHAT", "answer": answer})
+        return {"session_id": session_id, "decision": "CHAT", "answer": answer, "language": language}
+    pending = intake.PendingRequest.model_validate(conv["pending_request"]) if conv.get("pending_request") else None
+    grill, input_question = intake.parse_command(question)
+    replacement = intake.is_replacement(input_question) or (grill and bool(input_question))
+    if replacement:
+        pending, history = None, []
+    mode = "grill" if grill else pending.brief.mode if pending else "auto"
+    if grill and not input_question:
+        brief = pending.brief if pending else intake.RequestBrief(mode="grill")
+        brief.mode = "grill"
+        spec = ChartSpec.model_validate(pending.draft_spec) if pending else ChartSpec(metric="UNSUPPORTED", understood=False)
+        base = {"question": question, "role": role, "session_id": session_id, "language": language, "spec": spec.model_dump()}
+        q = intake.IntakeQuestion(id="metric", field="metric", text=intake.message("describe", language))
+        return _clarify(base, brief, spec, [q], [], pending.alternatives if pending else [],
+                        {"status": "not_searched", "candidates": []},
+                        unresolved_questions=pending.unresolved_questions if pending else None)
+    spec, meta = generate_spec(input_question, role, history, language,
+                               pending.model_dump() if pending else None, mode)
+    interpretation = meta["intake"]
+    # Replacing an unresolved request needs an explicit command/phrase, not merely
+    # an advisory model flag that might mistake a short clarification for a new task.
+    brief = intake.prepare_brief(interpretation.brief, spec, input_question, pending, mode, replacement)
     base = {"question": question, "role": role, "session_id": session_id, "spec": spec.model_dump(),
             "llm_cached": meta["cached"], "kpi_hints": meta.get("hints", []), "language": language}
 
-    if spec.mode == "chat":
+    if (spec.mode == "chat" and not pending and mode == "auto" and not brief.new_asset
+            and not brief.requested_metrics and not brief.unresolved_terms and not brief.unsupported):
         answer = spec.reply or text(
             "Voin näyttää tehtaan luvut ja kaaviot hallituilla määritelmillä: {metrics}. Kysy esimerkiksi, mitä pitää tilata tällä viikolla.",
             language, metrics=", ".join(metric_label(k, language) for k in metrics.METRICS))
@@ -182,13 +229,24 @@ def ask(question: str, role: str, session_id: str | None = None, language: Langu
         return {**base, "decision": "CHAT", "answer": answer,
                 "suggestions": _suggestions(question, language) if spec.metric == "UNSUPPORTED" else []}
 
-    if not spec.understood or spec.metric == "UNSUPPORTED":
-        msg = spec.clarification_question or text("En löytänyt tähän hallittua mittaria. Voin näyttää: {metrics}.",
-                                                language, metrics=", ".join(metric_label(k, language) for k in metrics.METRICS))
-        db.request_log.insert_one({"ts": now(), "role": role, "question": question, "decision": "CLARIFY"})
-        _save_turn(session_id, role, {"q": question, "decision": "CLARIFY", "answer": msg})
-        return {**base, "decision": "CLARIFY", "rule": "RULE-002", "reason": msg, "answer": msg,
-                "suggestions": _suggestions(question, language)}
+    if not brief.questions and spec.clarification_question:
+        brief.questions = [intake.IntakeQuestion(id="definition", field="definition", text=spec.clarification_question)]
+    metric, questions, limitations, alternatives, unresolved = intake.readiness(brief, spec, interpretation.outcome, language)
+    evidence = intake.reuse_evidence(spec, brief, role) if brief.new_asset or mode == "grill" else {"status": "not_searched", "candidates": []}
+    if questions:
+        return _clarify(base, brief, spec, questions, limitations, alternatives, evidence,
+                        interpretation.outcome if interpretation.outcome == "UNSUPPORTED" else "ASK", unresolved)
+    spec.metric = metric
+    spec.mode = "data"
+    spec.filters.product_ids, spec.filters.market_ids = brief.product_ids, brief.market_ids
+    spec.filters.plants = brief.plants
+    spec.actuals_only = brief.actual_forecast == "actual_only" or spec.actuals_only
+    if brief.usage != "unknown":
+        spec.intent = brief.usage
+    spec = _sanitize(spec, role, language, global_scope=brief.scope == "global")
+    base["spec"], base["brief"] = spec.model_dump(), brief.model_dump()
+    base["intake"] = {"outcome": "READY", "pending": False, "mode": brief.mode, "questions": [],
+                      "limitations": [], "alternatives": [], "reuse": evidence}
 
     fp = fingerprint(spec)
     existing = db.chart_registry.find_one({"fingerprint": fp, "status": {"$in": ACTIVE}}, {"embedding": 0})

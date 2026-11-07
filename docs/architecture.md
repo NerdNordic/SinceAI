@@ -11,6 +11,7 @@ governance; not every challenge workflow is implemented by this application.
 Browser (Vue 3 + Chart.js)
   -> FastAPI routes and language/input validation
      -> Gemini: validated ChartSpec / conversational reply
+     -> Python request-brief readiness gate; pending clarification if blocked
      -> Decision engine: fingerprint and registry lookup
         -> Python metrics + replenishment model: computed values and evidence
         -> MongoDB: source data, registry, conversations, results and audit state
@@ -29,9 +30,12 @@ the deterministic chart fingerprint.
 
 1. `backend/main.py` checks the role and non-blank question. Pydantic restricts the
    selected language to `en` or `fi` before calling the model.
-2. `backend/spec.py` uses history and optional KPI hints to request a structured
-   `ChartSpec`. It validates the response and sanitizes product/market/plant filters
-   against catalog lookups. Canonical metric IDs and schema enums remain unchanged.
+2. `backend/spec.py` uses history, pending state and optional KPI hints to request a
+   structured `Interpretation`: a request brief, advisory outcome and `ChartSpec`.
+   `backend/intake.py` validates readiness before computation: invalid identifiers
+   are rejected rather than dropped; global scope suppresses the role default.
+   Blocked requests persist in `conversations.pending_request`. See
+   [adaptive intake](intake.md) for the workflow and execution limitations.
 3. Chat-only replies are saved as conversation turns without incrementing the
    analytics request meter. Ambiguous/unsupported specifications return CLARIFY.
 4. `backend/engine.py` fingerprints metric, sorted dimensions and non-empty filter keys.

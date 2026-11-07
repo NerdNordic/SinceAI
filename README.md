@@ -11,6 +11,7 @@ synthetic and does not represent actual Bayer performance.
 - Shows morning briefings, inventory risks and replenishment priorities.
 - Answers questions with charts, tables, calculation receipts and raw-source CSV exports.
 - Chooses **Reuse**, **Extend**, **One-off answer**, **New chart** or **Clarify**.
+- Clarifies material ambiguity before execution; `/grill-me <request>` enables deeper discovery.
 - Tracks chart ownership, usage, certification/retirement proposals and audit events.
 - Supports English/Finnish and dark/light mode. English and dark mode are the defaults;
   the browser remembers your selections. New AI replies follow the selected language.
@@ -141,7 +142,7 @@ node '.\application\tests\frontend\preferences.test.cjs'
 
 Use a separate test terminal; the empty `N8N_WEBHOOK_URL` prevents inherited live
 webhook settings from sending notifications during proposal tests.
-The current suite has 19 backend tests and 4 frontend checks. Backend tests load the
+Backend tests load the
 included workbook into an in-memory MongoDB and replace Gemini; they do not alter
 the live database or call external APIs. `DATA_PACK_XLSX` can select another workbook.
 The frontend checks exercise JavaScript behavior with simulated browser APIs; they
@@ -170,6 +171,7 @@ production deployment. AI specification failures can still fail the request afte
 retries; deterministic fallbacks cover answer wording, not every provider call.
 
 - [Architecture and request flow](docs/architecture.md)
+- [Adaptive request intake and grill-me](docs/intake.md)
 - [Application development, configuration and API](application/README.md)
 - [Data import, search and replenishment exports](docs/data-import.md)
 - [Optional n8n governance workflow](integrations/n8n/README.md)

@@ -121,6 +121,14 @@ working directory. Original data assets live in `../data/bayer/`.
 
 ## Governed metrics
 
+Requests pass through an adaptive intake brief before computation or chart
+registration. Clear supported requests proceed directly; ambiguous and multi-metric
+requests remain pending until clarified or explicitly narrowed. Use `/grill-me`
+for deeper discovery. See the [intake guide](../docs/intake.md) for state, reuse
+evidence, command behavior and supported execution limits. New conversation clears
+pending intake; language changes preserve it. `abandon_pending=true` on `/api/ask`
+explicitly abandons a pending request while retaining history.
+
 The current allowlist includes Net Sales, Net Sales Growth, Units Shipped,
 Inventory Coverage, On-Time In-Full, Forecast Variance, Market Access Coverage,
 Demand Forecast Accuracy and Replenishment Reorder-By Date. `backend/metrics.py`

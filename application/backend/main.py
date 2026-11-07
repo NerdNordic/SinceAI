@@ -11,13 +11,15 @@ from pathlib import Path
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from . import briefing as briefing_mod
 from . import card_detail as card_detail_mod
 from . import config, dashboards, engine, metrics
 from .db import get_db
 from .i18n import Language, role_label
+from .intake import message
+from .spec import InterpretationUnavailable
 
 app = FastAPI(title="Build Less assistant", version="0.1.0")
 STATIC = Path(__file__).resolve().parent.parent / "frontend"
@@ -26,9 +28,10 @@ app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 class AskIn(BaseModel):
     role: str
-    question: str
+    question: str = Field(max_length=12000)
     session_id: str | None = None   # same id = same conversation (follow-up questions)
     language: Language = "en"
+    abandon_pending: bool = False
 
 
 class ProposeIn(BaseModel):
@@ -76,9 +79,12 @@ def get_card_detail(role: str, key: str):
 def ask(body: AskIn):
     if body.role not in config.ROLES:
         raise HTTPException(404, "unknown role")
-    if not body.question.strip():
+    if not body.question.strip() and not body.abandon_pending:
         raise HTTPException(400, "empty question")
-    return engine.ask(body.question.strip(), body.role, body.session_id, body.language)
+    try:
+        return engine.ask(body.question.strip(), body.role, body.session_id, body.language, body.abandon_pending)
+    except InterpretationUnavailable:
+        raise HTTPException(503, message("failed", body.language)) from None
 
 
 @app.get("/api/conversations/{session_id}")

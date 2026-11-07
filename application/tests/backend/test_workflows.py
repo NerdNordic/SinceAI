@@ -167,8 +167,8 @@ def test_chart_pivots_long_format_into_series(client):
     assert se["data"] == [257.7, None, -60.1]
 
 
-def test_spec_falls_back_to_cached_spec_when_gemini_fails(client, monkeypatch):
-    """A rehearsed question keeps working from an older cache entry when Gemini is unreachable."""
+def test_spec_does_not_use_unscoped_old_cache_when_gemini_fails(client, monkeypatch):
+    """Old cache entries lack language/intake context and cannot authorize execution."""
     db = dbmod.get_db()
     db.llm_cache.replace_one({"_id": "old-v3-key"}, {"_id": "old-v3-key", "kind": "spec",
                                                      "question": "Ennustepoikkeama Suomessa ja Ruotsissa kuukausittain",
@@ -183,11 +183,8 @@ def test_spec_falls_back_to_cached_spec_when_gemini_fails(client, monkeypatch):
         raise RuntimeError("model is broken")
 
     monkeypatch.setattr(specmod, "_call_gemini", dead_gemini)
-    spec, meta = specmod.generate_spec("Ennustepoikkeama Suomessa ja Ruotsissa kuukausittain",
-                                       "tehtaan_johtaja", [], "fi")
-    assert spec.metric == "Forecast Variance" and spec.dimensions == ["month", "market"]
-    assert spec.filters.market_ids == ["FI", "SE"]
-    assert meta["fallback"] is True
+    with pytest.raises(specmod.InterpretationUnavailable):
+        specmod.generate_spec("Ennustepoikkeama Suomessa ja Ruotsissa kuukausittain", "tehtaan_johtaja", [], "fi")
 
 
 def test_replenishment_matches_xlsx_module(client):

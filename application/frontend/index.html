@@ -268,7 +268,7 @@ try {
       <div class="panel chat" v-else>
         <div class="chat-head">
           <h2>{{ t('Keskustelu') }} · {{ roleLabel }}</h2>
-          <button class="btn ghost" v-if="answers.length" @click="newChat()">{{ t('Uusi keskustelu') }}</button>
+          <button class="btn ghost" v-if="answers.length" :disabled="busy" @click="newChat()">{{ t('Uusi keskustelu') }}</button>
         </div>
         <div class="empty muted" v-if="!answers.length">{{ t('Kysy luvuista omin sanoin. Voit jatkaa kysymällä esimerkiksi “entä Suomessa?” tai “miksi?”.') }}</div>
       <div v-for="(a, idx) in answers" :key="a.key" class="turn">
@@ -277,7 +277,14 @@ try {
         <div class="answer" v-else>
         <span class="decision" :class="a.decision">{{ t(a.decision) }}</span><b>{{ a.title }}</b>
         <span class="muted" v-if="a.rule"> · {{ a.rule }}</span>
-        <p class="said">{{ a.answer }}</p>
+        <ol v-if="a.intake?.pending" class="said"><li v-for="q in a.intake.questions" :key="q.id">{{ q.text }}</li></ol>
+        <p v-else class="said">{{ a.answer }}</p>
+        <template v-if="a.intake">
+          <ul v-if="a.intake.limitations.length"><li v-for="limit in a.intake.limitations.filter(limit => !a.answer.includes(limit))">{{ limit }}</li></ul>
+          <p class="muted" v-if="a.intake.alternatives.length">{{ t('Tuetut vaihtoehdot') }}: {{ a.intake.alternatives.map(option => t(option.label)).join(' · ') }}</p>
+          <p class="muted" v-if="a.intake.reuse.message">{{ a.intake.reuse.message }}</p>
+          <ul v-if="a.intake.reuse.candidates.length"><li v-for="candidate in a.intake.reuse.candidates">{{ candidate.id }} · {{ candidate.title }} · {{ t(candidate.suitability) }}</li></ul>
+        </template>
         <p class="reason muted" v-if="a.reason !== a.answer">{{ a.reason }}</p>
         <template v-if="a.chart && a.chart.labels.length">
           <div class="chartbox" v-if="a.chart.type !== 'table'"><canvas :id="'c' + a.key"></canvas></div>
@@ -395,7 +402,7 @@ createApp({
     language: document.documentElement.lang === 'fi' ? 'fi' : 'en', languageLoading: false,
     theme: document.documentElement.dataset.theme === 'light' ? 'light' : 'dark',
     roles: [], role: 'tehtaan_johtaja', brief: null, meter: null, question: '', busy: false, answers: [],
-    sessionId: null, registry: [], proposals: [], auditLog: [],
+    sessionId: null, pendingRequest: false, registry: [], proposals: [], auditLog: [],
     modal: null, modalBusy: false, cardSeq: 0,
     view: 'dash', dash: null, dashBusy: false, pinTarget: {}, pinnedBy: {},
   }),
@@ -489,10 +496,19 @@ createApp({
         await this.loadDash();
       }
     },
-    async setRole(r) { this.role = r; this.brief = null; this.newChat(); this.dash = null; await this.refresh(); },
-    newChat() {
+    async setRole(r) { if (await this.newChat() === false) return; this.role = r; this.brief = null; this.dash = null; await this.refresh(); },
+    async newChat() {
+      if (this.busy) return false;
+      if (this.sessionId && this.pendingRequest) {
+        try {
+          const response = await fetch('/api/ask', {method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({role: this.role, question: '', language: this.language, session_id: this.sessionId, abandon_pending: true})});
+          if (!response.ok) throw new Error('abandon failed');
+        } catch { alert(this.t('Pyyntö epäonnistui. Yritä uudelleen.')); return false; }
+      }
       this.clearCharts();
-      this.answers = []; this.sessionId = null;
+      this.answers = []; this.sessionId = null; this.pendingRequest = false;
+      return true;
     },
     clearCharts() {
       Object.values(charts).forEach(c => c.destroy());
@@ -522,6 +538,7 @@ createApp({
         if (!res.ok) throw new Error(this.t(res.status >= 500 ? 'AI-palvelu ei ole juuri nyt käytettävissä. Yritä hetken kuluttua uudelleen.' : 'Pyyntö epäonnistui. Yritä uudelleen.'));
         const a = await res.json();
         a.key = Date.now(); this.sessionId = a.session_id;
+        this.pendingRequest = Boolean(a.intake?.pending);
         this.answers.push(a); this.question = '';
         await nextTick(); this.draw(a);
         this.$refs.input && this.$refs.input.scrollIntoView({ behavior: 'smooth', block: 'center' });

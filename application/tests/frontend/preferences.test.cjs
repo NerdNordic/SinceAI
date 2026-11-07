@@ -97,3 +97,28 @@ test('all literal UI translation keys have English translations', () => {
     assert.ok(vm.runInContext(`Object.hasOwn(ENGLISH, ${JSON.stringify(match[1])})`, context), match[1]);
   }
 });
+
+test('pending clarification survives a language switch and new conversation explicitly abandons it', async () => {
+  const {app, requests} = setup();
+  app.sessionId = 'pending-session';
+  app.pendingRequest = true;
+  app.answers = [{decision: 'CLARIFY', answer: 'Choose a metric'}];
+  await app.setLanguage('fi');
+  assert.equal(app.sessionId, 'pending-session');
+  assert.equal(app.pendingRequest, true);
+  assert.equal(app.answers.length, 1);
+  await app.newChat();
+  const abandonment = requests.find(r => r.url === '/api/ask');
+  assert.equal(abandonment.body.session_id, 'pending-session');
+  assert.equal(abandonment.body.abandon_pending, true);
+  assert.equal(app.pendingRequest, false);
+  assert.equal(app.sessionId, null);
+});
+
+test('busy requests cannot abandon a conversation', async () => {
+  const {app, requests} = setup();
+  app.sessionId = 'pending-session'; app.pendingRequest = true; app.busy = true;
+  assert.equal(await app.newChat(), false);
+  assert.equal(app.sessionId, 'pending-session');
+  assert.equal(requests.length, 0);
+});

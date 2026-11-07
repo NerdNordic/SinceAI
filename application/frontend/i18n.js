@@ -1,5 +1,6 @@
 // Presentation only: never translate API keys, fingerprints, source IDs or user text.
 const ENGLISH = {
+  'Tuetut vaihtoehdot': 'Supported alternatives', 'verified': 'Verified match', 'needs_verification': 'Needs verification',
   'assistentti': 'assistant', 'pyyntöä': 'requests', 'uutta kaaviota': 'new charts', 'ilman uutta': 'without a new chart',
   'Vaalea tila': 'Light mode', 'Tumma tila': 'Dark mode', 'Kieli': 'Language',
   'Aamubriefing': 'Morning briefing', 'tilaa viimeistään': 'order by', 'kpl/vko': 'units/week',
@@ -52,6 +53,7 @@ const ENGLISH = {
   'ZERO_INVENTORY': 'Zero inventory', 'air': 'Air', 'road': 'Road', 'sea': 'Sea',
 };
 const FINNISH = {
+  'verified': 'Varmennettu vastaavuus', 'needs_verification': 'Vaatii tarkistuksen',
   'units': 'kpl', 'weeks': 'viikkoa', 'units/week': 'kpl/vko',
   'days until order date (negative = overdue)': 'päivää tilauspäivään (miinus = myöhässä)',
   'Days until recommended order date': 'Päiviä suositeltuun tilauspäivään',
