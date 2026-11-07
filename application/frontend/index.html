@@ -23,6 +23,7 @@ try {
     --forecast: #f0c078;
     --on-accent: #10271e;
     --chart-palette: #73d9b4, #9cc5ff, #f0c078, #c6a5ed, #ffaaa2, #b9d982, #a5b8b1, #f49bc4;
+    --skel-shine: rgba(229,238,235,.08);
   }
   :root[data-theme="light"] {
     color-scheme: light;
@@ -32,6 +33,7 @@ try {
     --forecast: #895000;
     --on-accent: #ffffff;
     --chart-palette: #0f6e56, #2d5ba8, #895000, #7a3e9d, #b3261e, #3f7f2a, #5f6b65, #c2185b;
+    --skel-shine: rgba(255,255,255,.8);
   }
   * { box-sizing: border-box; }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
@@ -117,7 +119,23 @@ try {
   .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 10px; font-size: 13px; }
   a { color: var(--accent); }
   .muted { color: var(--muted); }
-  .spinner { color: var(--muted); font-size: 14px; margin: 12px 0; }
+  .skeleton { position: relative; overflow: hidden; border-radius: 6px; background: var(--line); }
+  .skeleton::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, var(--skel-shine), transparent); animation: skel-shimmer 1.3s infinite; }
+  @keyframes skel-shimmer { 100% { transform: translateX(100%); } }
+  @media (prefers-reduced-motion: reduce) { .skeleton::after { animation: none; } }
+  .skeleton + .skeleton { margin-top: 8px; }
+  .sk-h { height: 14px; width: 40%; }
+  .sk-val { height: 22px; width: 55%; }
+  .sk-l1 { height: 12px; width: 72%; }
+  .sk-l2 { height: 12px; width: 48%; }
+  .sk-spark { height: 54px; }
+  .sk-chart { height: 300px; }
+  .sk-chart.sm { height: 220px; }
+  .sk-bubble { height: 38px; width: 40%; max-width: 280px; margin-left: auto; border-radius: 14px 14px 4px 14px; }
+  .skel .cards, .skel .items, .skel .tiles { margin-top: 14px; }
+  .skel .card, .skel .tile { cursor: default; }
+  .skel .card:hover { border-color: var(--line); }
+  .sk-cap { color: var(--muted); font-size: 13px; margin-top: 12px; }
   .chat-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
   .chat-head h2 { margin: 0; }
   .empty { padding: 24px 0; font-size: 14px; }
@@ -185,7 +203,23 @@ try {
       <div class="devs ok" v-else-if="brief.deviations">{{ t('Ei poikkeamia — kaikki tavoitteissa.') }}</div>
       <div class="fresh" v-if="brief.freshness">{{ brief.freshness }}</div>
       </template>
-      <div v-else class="spinner">{{ t('Haetaan aamubriefingiä…') }}</div>
+      <div v-else class="skel" role="status" :aria-label="t('Haetaan aamubriefingiä…')">
+        <div aria-hidden="true">
+          <div class="skeleton sk-h"></div>
+          <div class="cards">
+            <div v-for="n in 6" :key="n" class="card">
+              <div class="skeleton sk-val"></div>
+              <div class="skeleton sk-l2"></div>
+              <div class="skeleton sk-l1"></div>
+              <div class="skeleton sk-spark"></div>
+            </div>
+          </div>
+          <ul class="items">
+            <li v-for="n in 2" :key="n"><div class="skeleton sk-l1"></div></li>
+          </ul>
+        </div>
+        <div class="sk-cap">{{ t('Haetaan aamubriefingiä…') }}</div>
+      </div>
     </section>
 
     <section>
@@ -237,7 +271,15 @@ try {
       <div class="panel" v-if="view === 'dash'">
         <h2>{{ t('Kojelauta') }} · {{ roleLabel }}</h2>
         <div class="fresh" v-if="dash">{{ t('Sertifioidut KPI:t') }}: {{ dash.kpi_ids.join(', ') || '–' }} · {{ dash.tiles.length }} {{ t('kaaviota') }} · {{ t('luvut lasketaan aina tuoreesta datasta') }}</div>
-        <div class="spinner" v-if="dashBusy">{{ t('Haetaan sertifioituja kaavioita…') }}</div>
+        <div class="skel" v-if="dashBusy" role="status" :aria-label="t('Haetaan sertifioituja kaavioita…')">
+          <div class="tiles" aria-hidden="true">
+            <div v-for="n in 2" :key="n" class="tile">
+              <div class="skeleton sk-h"></div>
+              <div class="skeleton sk-chart"></div>
+            </div>
+          </div>
+          <div class="sk-cap">{{ t('Haetaan sertifioituja kaavioita…') }}</div>
+        </div>
         <div class="empty muted" v-if="dash && !dash.tiles.length">
           {{ t('Ei vielä sertifioituja kaavioita tälle roolille. Kysy lukuja keskustelussa ja pyydä Data Stewardia sertifioimaan ne.') }}
           <div style="margin-top:10px"><button class="btn ghost" @click="setView('chat')">{{ t('Siirry keskusteluun') }}</button></div>
@@ -315,7 +357,18 @@ try {
         </div>
         <div class="chips" v-if="(a.suggestions || []).length"><button v-for="s in a.suggestions" :key="s.question" @click="question = s.question; ask()" :disabled="busy || languageLoading">{{ s.label }}</button></div>
       </div>
-        <div class="spinner" v-if="busy">{{ t('Gemini tulkitsee kysymystä ja moottori laskee…') }}</div>
+        <div class="skel" v-if="busy" role="status" :aria-label="t('Gemini tulkitsee kysymystä ja moottori laskee…')">
+          <div class="turn" aria-hidden="true">
+            <div class="skeleton sk-bubble"></div>
+            <div class="answer">
+              <div class="skeleton sk-h" style="width:32%"></div>
+              <div class="skeleton sk-l1"></div>
+              <div class="skeleton sk-l2"></div>
+              <div class="skeleton sk-chart"></div>
+            </div>
+          </div>
+          <div class="sk-cap">{{ t('Gemini tulkitsee kysymystä ja moottori laskee…') }}</div>
+        </div>
         <form class="ask" @submit.prevent="ask()">
           <input v-model="question" :placeholder="t('Kysy luvuista, pyydä kaaviota tai jatka edellisestä…')" :disabled="busy || languageLoading" ref="input">
           <button :disabled="busy || languageLoading || !question.trim()">{{ t('Lähetä') }}</button>
@@ -350,7 +403,17 @@ try {
         <span class="muted" v-if="modal.source">{{ modal.source }}</span>
       </div>
     </div>
-    <div class="modal" v-else-if="modalBusy"><div class="spinner">{{ t('Ladataan kortin tietoja…') }}</div></div>
+    <div class="modal" v-else-if="modalBusy">
+      <div class="skel" role="status" :aria-label="t('Ladataan kortin tietoja…')">
+        <div aria-hidden="true">
+          <div class="skeleton" style="height:17px;width:45%"></div>
+          <div class="skeleton" style="height:28px;width:45%;max-width:220px"></div>
+          <div class="skeleton" style="height:13px;width:32%"></div>
+          <div class="skeleton sk-chart sm"></div>
+        </div>
+        <div class="sk-cap">{{ t('Ladataan kortin tietoja…') }}</div>
+      </div>
+    </div>
   </div>
 </div>
 

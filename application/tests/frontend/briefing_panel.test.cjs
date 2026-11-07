@@ -1,6 +1,6 @@
 // Run with: node tests/frontend/briefing_panel.test.cjs (no npm dependencies).
 // The morning briefing side panel must always be visible: the section itself is
-// not gated on brief, the inner content keeps its null-guard, and a spinner
+// not gated on brief, the inner content keeps its null-guard, and a skeleton
 // placeholder shows while the briefing is loading.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -20,8 +20,13 @@ test('the briefing content keeps its null-guard inside the panel', () => {
   assert.match(html, /<section class="panel">\s*<template v-if="brief">/);
 });
 
-test('a loading placeholder shows while brief is null', () => {
-  assert.ok(html.includes('<div v-else class="spinner">{{ t(\'Haetaan aamubriefingiä…\') }}</div>'));
+test('a skeleton placeholder shows while brief is null', () => {
+  assert.ok(html.includes('<div v-else class="skel" role="status" :aria-label="t(\'Haetaan aamubriefingiä…\')">'));
+  assert.ok(/v-else class="skel"[\s\S]{0,400}?skeleton sk-val/.test(html));
+});
+
+test('the skeleton placeholder keeps a visible translated caption', () => {
+  assert.ok(html.includes('<div class="sk-cap">{{ t(\'Haetaan aamubriefingiä…\') }}</div>'));
 });
 
 test('the loading placeholder text is translated', () => {
