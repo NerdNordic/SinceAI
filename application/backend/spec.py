@@ -137,7 +137,7 @@ Warnings: {json.dumps(payload['warnings'], ensure_ascii=False)}"""
 # --------------------------------------------------------------------------- gemini calls
 
 def _retrying(call):
-    import vector_store as vs
+    from . import vector_store as vs
 
     for attempt in range(5):
         try:
@@ -153,7 +153,7 @@ def _retrying(call):
 def _call_gemini(prompt: str, language: Language = "en") -> ChartSpec:
     from google.genai import types
 
-    import vector_store as vs
+    from . import vector_store as vs
 
     client = vs._gemini()
 
@@ -177,7 +177,7 @@ def _language_instruction(language: Language) -> str:
 def _call_gemini_text(prompt: str, language: Language = "en") -> str:
     from google.genai import types
 
-    import vector_store as vs
+    from . import vector_store as vs
 
     client = vs._gemini()
 
@@ -194,7 +194,7 @@ def _call_gemini_text(prompt: str, language: Language = "en") -> str:
 
 def _kpi_hints(question: str) -> list[str]:
     try:
-        import vector_store as vs
+        from . import vector_store as vs
 
         from .db import get_db
 

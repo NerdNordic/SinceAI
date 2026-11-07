@@ -2,7 +2,7 @@
 
 Import these from the backend:
 
-    from vector_store import search_kpis, search_charts, register_chart
+    from backend.vector_store import search_kpis, search_charts, register_chart
 
 Environment:
     GEMINI_API_KEY        Google AI Studio key

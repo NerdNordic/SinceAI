@@ -1,6 +1,6 @@
 """Command line: compute the replenishment forecast and write CSV/JSON outputs.
 
-    python -m reorder.cli --xlsx Bayer_...Builder_Data_Pack.xlsx --out output --today 2026-11-06
+    python -m backend.replenishment.cli --xlsx Bayer_...Builder_Data_Pack.xlsx --out output --today 2026-11-06
 """
 
 from __future__ import annotations
@@ -13,13 +13,13 @@ from pathlib import Path
 from .data import load_data_pack
 from .model import Assumptions, compute_all, default_as_of, flatten, metric_definition, plant_summary
 
-HERE = Path(__file__).resolve().parent.parent
+HERE = Path(__file__).resolve().parents[2]
 
 
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--xlsx", required=True, help="Path to the builder data pack .xlsx")
-    ap.add_argument("--assumptions", default=str(HERE / "assumptions.json"))
+    ap.add_argument("--assumptions", default=str(HERE / "config" / "assumptions.json"))
     ap.add_argument("--out", default=str(HERE / "output"))
     ap.add_argument("--as-of", type=date.fromisoformat, help="Inventory snapshot date (default: end of latest month in data)")
     ap.add_argument("--today", type=date.fromisoformat, help="Date statuses are evaluated against (default: system date)")

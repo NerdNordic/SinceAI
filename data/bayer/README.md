@@ -2,7 +2,14 @@
 
 Rendered from the `START_HERE` and `Package_Overview` worksheets of
 `Bayer_Pharmaceuticals_SinceAI_2026_FINAL_Builder_Data_Pack.xlsx` (v2.0).
-The active application imports this workbook into MongoDB with `fastapi+vue/seed_mongo.py`.
+The active application imports this workbook into MongoDB with
+[`tools/seed_mongo.py`](../../application/tools/seed_mongo.py). See the
+[project README](../../README.md) for setup and the
+[application README](../../application/README.md) for current capabilities.
+
+This directory preserves the original [PDF challenge brief](Since_AI_Bayer_Challenge_Brief_FINAL.pdf)
+and [Word challenge brief](Since_AI_Bayer_Challenge_Brief_FINAL.docx) alongside the workbook.
+It is source material and test data, not an application working directory.
 
 ## Challenge
 
@@ -25,6 +32,11 @@ KPIs + semantic models + existing reports -> checks usage, ownership, lineage an
 -> recommends reuse / consolidation / migration / retirement / new build with evidence.
 
 ### Agent workflow (from START_HERE)
+
+The following table summarizes the original challenge brief. It is a target
+workflow, not a claim that the current app implements every migration, lineage
+or estate-audit feature. The implemented request decisions are REUSE, EXTEND,
+ANSWER, BUILD and CLARIFY, with separate chart-certification/retirement proposals.
 
 | Step | Use | Agent task | Evidence | Output |
 |---|---|---|---|---|
@@ -98,6 +110,27 @@ Lynkuet 140, Beyonttra 140, Hyrnuo 140.
 ## Using the data pack
 
 The workbook is the source fixture for the MongoDB importer and offline regression tests.
-See [data import instructions](../../fastapi+vue/DATA_IMPORT.md) for the import and
+See [data import instructions](../../docs/data-import.md) for the import and
 vector-search tools. The application computes governed metrics from MongoDB;
 the test suite loads the workbook into an isolated in-memory database.
+
+The importer reads 21 data sheets and excludes workbook instruction/overview sheets.
+Seven products across fourteen markets produce 98 product–market replenishment
+results. The workbook's monthly operational period is January–October 2026.
+
+For a local preview without MongoDB or Gemini, use the importer's `--dry-run`
+option. A real import replaces the imported source collections, so it should not
+be run merely to start the application. Restart the app after a source refresh
+to clear its process-local data caches.
+
+From the repository root, run the offline backend suite with:
+
+```powershell
+$env:N8N_WEBHOOK_URL = ''
+& '.\.venv\Scripts\python.exe' -m pytest -q
+```
+
+`DATA_PACK_XLSX` can select another workbook fixture. It does not change which
+database the live application uses. No real service credentials are needed for
+the supported offline tests. Run them in a separate terminal; the empty webhook
+setting prevents accidental notifications from inherited live configuration.

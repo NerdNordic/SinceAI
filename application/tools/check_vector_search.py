@@ -1,7 +1,7 @@
 """End-to-end test of Gemini embeddings + Atlas Vector Search.
 
-    python test_search.py              # all tests
-    python test_search.py --only kpi   # kpi | asset | chart
+    python -m tools.check_vector_search              # all tests
+    python -m tools.check_vector_search --only kpi   # kpi | asset | chart
 
 Needs MONGODB_URI and GEMINI_API_KEY (same as seed_mongo.py). Uses about 30 embedding calls.
 Exit code 0 = all required checks passed.
@@ -17,7 +17,7 @@ import uuid
 
 from pymongo import MongoClient
 
-import vector_store as vs
+from backend import vector_store as vs
 
 # (query, expected canonical metric). The first group uses words from kpi_aliases.json,
 # the second group are paraphrases that are NOT in the alias list: they test real semantic matching.

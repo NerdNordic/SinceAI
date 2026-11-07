@@ -39,7 +39,7 @@ def _audit(event: str, **data: Any) -> None:
 
 def _similar_charts(spec: ChartSpec, fp: str, question: str) -> list[dict[str, Any]]:
     try:
-        import vector_store as vs
+        from . import vector_store as vs
 
         hits = vs.search_charts(get_db(), f"{spec.title}. {question}", filter={"status": {"$in": ACTIVE}}, limit=4)
         return [{"fingerprint": h["fingerprint"], "title": h["title"], "score": round(h["score"], 3)}
@@ -51,7 +51,7 @@ def _similar_charts(spec: ChartSpec, fp: str, question: str) -> list[dict[str, A
 def _related_reports(spec: ChartSpec) -> list[dict[str, Any]]:
     """Existing Bayer reports that measure the same canonical metric (from the catalogue)."""
     try:
-        import vector_store as vs
+        from . import vector_store as vs
 
         hits = vs.search_assets(get_db(), f"{spec.metric}. {spec.title}", limit=6)
         return [{"asset_id": h["_id"], "name": h["asset_name"], "platform": h["platform"],
@@ -73,7 +73,7 @@ def _register(spec: ChartSpec, fp: str, role: str, question: str, language: Lang
         "used_by_roles": [role], "last_used_at": now(),
     }
     try:
-        import vector_store as vs
+        from . import vector_store as vs
 
         vs.register_chart(get_db(), chart)
     except Exception as exc:  # noqa: BLE001 - registry must work without embeddings

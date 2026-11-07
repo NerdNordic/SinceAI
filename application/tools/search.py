@@ -1,9 +1,9 @@
 """Try the vector search from the command line.
 
-    python search.py kpi "toimitusvarmuus"
-    python search.py kpi "net sales" --all-variants
-    python search.py asset "Nubeqa sales growth and market access by country"
-    python search.py chart "OTIF trend by market"
+    python -m tools.search kpi "toimitusvarmuus"
+    python -m tools.search kpi "net sales" --all-variants
+    python -m tools.search asset "Nubeqa sales growth and market access by country"
+    python -m tools.search chart "OTIF trend by market"
 """
 
 import argparse
@@ -11,7 +11,7 @@ import os
 
 from pymongo import MongoClient
 
-import vector_store as vs
+from backend import vector_store as vs
 
 
 def main() -> None:
