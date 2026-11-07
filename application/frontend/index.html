@@ -18,51 +18,84 @@ try {
 <script src="/static/vendor/chart.umd.js"></script>
 <style>
   :root {
+    /* Clean and Energetic — dark theme (#5680E9 / #84CEEB / #5AB9EA / #C1C8E4 / #8860D0) */
     color-scheme: dark;
-    --bg: #111817; --panel: #1a2422; --ink: #e5eeeb; --muted: #a5b8b1; --line: #3b5048;
-    --accent: #73d9b4; --accent-soft: #203c32; --warn: #f0c078; --warn-soft: #3d3020;
-    --crit: #ffaaa2; --crit-soft: #422824; --info: #9cc5ff; --info-soft: #23344d;
-    --forecast: #f0c078;
-    --on-accent: #10271e;
-    --chart-palette: #73d9b4, #9cc5ff, #f0c078, #c6a5ed, #ffaaa2, #b9d982, #a5b8b1, #f49bc4;
-    --skel-shine: rgba(229,238,235,.08);
+    --bg: #0d1226;
+    --panel: #161e3a;
+    --ink: #dce4f8;
+    --muted: #8892b4;
+    --line: #2a3560;
+    --accent: #5680e9;
+    --accent-soft: #131d4a;
+    --warn: #84ceeb;
+    --warn-soft: #1c2c50;
+    --crit: #e05a7a;
+    --crit-soft: #2a0d1a;
+    --info: #8860d0;
+    --info-soft: #1a1038;
+    --forecast: #5ab9ea;
+    --on-accent: #ffffff;
+    --header-bg: #161e3a;
+    --header-ink: #dce4f8;
+    --header-line: #2a3560;
+    --chart-palette: #5680e9, #84ceeb, #5ab9ea, #c1c8e4, #8860d0, #3d60c8, #8892b4, #a0c0f0;
+    --skel-shine: rgba(220,228,248,.10);
   }
   :root[data-theme="light"] {
+    /* Clean and Energetic — light variant */
     color-scheme: light;
-    --bg: #f6f7f4; --panel: #ffffff; --ink: #1d2320; --muted: #5f6b65; --line: #dfe3dd;
-    --accent: #0f6e56; --accent-soft: #e3f1ec; --warn: #895000; --warn-soft: #fbf0df;
-    --crit: #b3261e; --crit-soft: #fbe6e4; --info: #2d5ba8; --info-soft: #e6eefa;
-    --forecast: #895000;
+    --bg: #f0f3fc;
+    --panel: #ffffff;
+    --ink: #0d1226;
+    --muted: #4a5480;
+    --line: #c1c8e4;
+    --accent: #5680e9;
+    --accent-soft: #e0e8fc;
+    --warn: #c07010;
+    --warn-soft: #fff4d6;
+    --crit: #c0304a;
+    --crit-soft: #fce8ee;
+    --info: #8860d0;
+    --info-soft: #ede8f8;
+    --forecast: #3a9ed8;
     --on-accent: #ffffff;
-    --chart-palette: #0f6e56, #2d5ba8, #895000, #7a3e9d, #b3261e, #3f7f2a, #5f6b65, #c2185b;
-    --skel-shine: rgba(255,255,255,.8);
+    --header-bg: #161e3a;
+    --header-ink: #dce4f8;
+    --header-line: #2a3560;
+    --chart-palette: #5680e9, #3a9ed8, #8860d0, #0d1226, #c0304a, #84ceeb, #4a5480, #5ab9ea;
+    --skel-shine: rgba(255,255,255,.75);
   }
   * { box-sizing: border-box; }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 "Inter", system-ui, -apple-system, Segoe UI, sans-serif; }
-  header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; padding: 14px 24px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
-  h1 { font-size: 17px; margin: 0; letter-spacing: -0.01em; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 "Nunito Sans", "Inter", system-ui, -apple-system, Segoe UI, sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; padding: 14px 24px; background: var(--header-bg); border-bottom: 3px solid var(--accent); position: sticky; top: 0; z-index: 5; color: var(--header-ink); }
+  header button { color: var(--header-ink); }
+  header .btn.ghost { color: var(--header-ink); border-color: var(--header-line); }
+  h1 { font-size: 17px; margin: 0; letter-spacing: -0.01em; color: var(--header-ink); font-weight: 700; }
   h1 span { color: var(--accent); }
   header .logo { height: 30px; width: 30px; border-radius: 7px; flex: none; }
   .roles { display: flex; gap: 6px; flex-wrap: wrap; }
-  .roles button { border: 1px solid var(--line); background: var(--panel); padding: 7px 12px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 14px; color: var(--ink); }
+  .roles button { border: 1px solid var(--header-line); background: transparent; padding: 7px 12px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 14px; color: var(--header-ink); }
   .roles button.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
-  .meter { margin-left: auto; display: flex; align-items: baseline; gap: 8px; padding: 6px 14px; border-radius: 10px; background: var(--accent-soft); }
+  .role-select-wrap { display: flex; align-items: center; gap: 8px; }
+  .role-select-wrap label { font-size: 13px; color: var(--header-ink); opacity: .75; white-space: nowrap; }
+  .role-select-wrap select { background: transparent; border: 1px solid var(--header-line); border-radius: 999px; padding: 7px 30px 7px 14px; font: inherit; font-size: 14px; color: var(--header-ink); cursor: pointer; -webkit-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23dce4f8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 11px center; }
+  .role-select-wrap select option { background: var(--panel); color: var(--ink); }
+  header .viewtabs { margin-bottom: 0; }
+  .meter { margin-left: auto; display: flex; align-items: baseline; gap: 8px; padding: 6px 14px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 18%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
   .meter b { font-size: 20px; color: var(--accent); font-variant-numeric: tabular-nums; }
-  .meter small { color: var(--muted); }
+  .meter small { color: var(--header-ink); opacity: .7; }
   main { display: grid; grid-template-columns: 340px 1fr; gap: 20px; padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
   @media (max-width: 900px) { main { grid-template-columns: 1fr; padding: 16px; } .meter { margin-left: 0; } }
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
-  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+  .panel h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 0 0 12px; font-weight: 700; }
   .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .card { border: 1px solid var(--line); border-radius: 10px; padding: 10px; cursor: pointer; transition: border-color .12s; min-width: 0; }
-  .card:hover { border-color: var(--accent); }
+  .card { border: 1px solid var(--line); border-radius: 8px; padding: 10px; cursor: pointer; transition: border-color .12s, box-shadow .12s; }
+  .card:hover { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .card .v { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
   .card .l { font-size: 12.5px; color: var(--muted); }
-  .card .spark { position: relative; height: 54px; margin-top: 8px; overflow: hidden; }
-  .card .spark.bar { height: 128px; }
-  .card.critical { background: var(--crit-soft); border-color: transparent; } .card.critical .v { color: var(--crit); }
-  .card.warning { background: var(--warn-soft); border-color: transparent; } .card.warning .v { color: var(--warn); }
+  .card.critical { background: var(--crit-soft); border-color: var(--crit); } .card.critical .v { color: var(--crit); }
+  .card.warning { background: var(--warn-soft); border-color: var(--warn); } .card.warning .v { color: var(--warn); }
   .delta { font-size: 12.5px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
   .delta.good { color: var(--accent); } .delta.bad { color: var(--crit); }
   .kysy { padding: 4px 10px; font-size: 12.5px; margin-top: 8px; }
@@ -73,7 +106,7 @@ try {
   .dev.low { background: var(--info-soft); color: var(--info); }
   .devs.ok { color: var(--accent); font-size: 13px; }
   .overlay { position: fixed; inset: 0; background: rgba(20, 24, 22, .45); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 20; }
-  .modal { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; width: 100%; max-width: 660px; max-height: 85vh; overflow: auto; position: relative; }
+  .modal { background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--accent); border-radius: 8px; padding: 20px 22px; width: 100%; max-width: 660px; max-height: 85vh; overflow: auto; position: relative; }
   .modal h3 { margin: 0 0 2px; font-size: 16px; }
   .close { position: absolute; top: 10px; right: 12px; border: 0; background: transparent; color: var(--muted); font-size: 17px; cursor: pointer; padding: 4px; }
   .close:hover { color: var(--ink); }
@@ -92,7 +125,8 @@ try {
   .ask { display: flex; gap: 8px; }
   .ask input { flex: 1; min-width: 0; padding: 11px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); font: inherit; }
   .ask input::placeholder { color: var(--muted); opacity: 1; }
-  .ask button, .btn { padding: 10px 16px; border: 0; border-radius: 10px; background: var(--accent); color: var(--on-accent); font: inherit; cursor: pointer; }
+  .ask button, .btn { padding: 10px 16px; border: 0; border-radius: 6px; background: var(--accent); color: var(--on-accent); font: inherit; cursor: pointer; font-weight: 600; letter-spacing: .01em; transition: opacity .12s; }
+  .ask button:hover, .btn:hover { opacity: .88; }
   button:disabled, input:disabled { opacity: .6; cursor: not-allowed; }
   .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); padding: 6px 10px; font-size: 13px; }
   .btn.danger { background: transparent; color: var(--crit); border: 1px solid var(--crit); padding: 6px 10px; font-size: 13px; }
@@ -151,11 +185,11 @@ try {
   .reason.muted { font-size: 13px; margin-top: 0; }
   .ask { margin-top: 12px; }
   .viewtabs { display: flex; gap: 6px; margin-bottom: 14px; }
-  .viewtabs button { border: 1px solid var(--line); background: var(--panel); padding: 7px 12px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 14px; color: var(--ink); }
-  .viewtabs button.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .viewtabs button { border: 1px solid var(--line); background: var(--panel); padding: 7px 14px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 14px; color: var(--ink); transition: border-color .12s, background .12s; }
+  .viewtabs button.on { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
   .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   @media (max-width: 1250px) { .tiles { grid-template-columns: 1fr; } }
-  .tile { border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; background: var(--panel); }
+  .tile { border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-width: 0; background: var(--panel); border-top: 3px solid var(--accent); }
   .tile-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
   .pill.pin { background: var(--accent-soft); color: var(--accent); cursor: pointer; }
   .pinsel { border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px; font: inherit; font-size: 13px; background: var(--panel); color: var(--ink); }
@@ -167,8 +201,15 @@ try {
   <header>
     <img class="logo" src="/static/favicon-bars.webp" alt="" aria-hidden="true">
     <h1>Build <span>Less</span> {{ t('assistentti') }}</h1>
-    <div class="roles">
-      <button v-for="r in roles" :key="r.id" :class="{on: r.id === role}" @click="setRole(r.id)">{{ r.label }}</button>
+    <div class="role-select-wrap">
+      <label>{{ t('Rooli') }}</label>
+      <select :value="role" @change="setRole($event.target.value)">
+        <option v-for="r in roles" :key="r.id" :value="r.id">{{ r.label }}</option>
+      </select>
+    </div>
+    <div class="viewtabs">
+      <button :class="{on: view === 'dash'}" @click="setView('dash')">{{ t('Kojelauta') }}</button>
+      <button :class="{on: view === 'chat'}" @click="setView('chat')">{{ t('Keskustelu') }}</button>
     </div>
     <div class="meter" v-if="meter">
       <b>{{ fmt(meter.requests) }}</b><small>{{ t('pyyntöä') }}</small>
@@ -270,11 +311,6 @@ try {
       </div>
 
       <template v-else>
-      <div class="viewtabs">
-        <button :class="{on: view === 'dash'}" @click="setView('dash')">{{ t('Kojelauta') }}</button>
-        <button :class="{on: view === 'chat'}" @click="setView('chat')">{{ t('Keskustelu') }}</button>
-      </div>
-
       <div class="panel" v-if="view === 'dash'">
         <h2>{{ t('Kojelauta') }} · {{ roleLabel }}</h2>
         <div class="fresh" v-if="dash">{{ t('Sertifioidut KPI:t') }}: {{ dash.kpi_ids.join(', ') || '–' }} · {{ dash.tiles.length }} {{ t('kaaviota') }} · {{ t('luvut lasketaan aina tuoreesta datasta') }}</div>
