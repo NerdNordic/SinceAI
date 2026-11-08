@@ -1,81 +1,107 @@
 {
-  "_comment": "Canned Gemini responses for VIDEO_DEMO_FAST mode. specs and answers were captured from real gemini-3.5-flash-lite runs against the seeded data pack.",
-  "questions": {
-    "Show net sales month over month": {
-      "spec": {
-        "metric": "Net Sales Growth",
-        "dimensions": [
-          "month"
-        ],
-        "filters": {
-          "product_ids": [],
-          "market_ids": [],
-          "plants": [
-            "Plant-A"
-          ],
-          "statuses": []
-        },
-        "chart_type": "line",
-        "intent": "recurring",
-        "title": "Net Sales Growth by Month",
-        "understood": true,
-        "mode": "data"
-      },
-      "answers": {
-        "en": "Net sales growth fluctuated significantly month over month, reaching a peak of 26.01% in May 2026 and dropping to a low of -24.08% in July 2026. October 2026 recorded a net sales growth of -6.12%. Please note that 154 out of 320 source rows are forecast-like rather than actuals."
-      }
+ "_comment": "Canned Gemini responses for VIDEO_DEMO_FAST=1 - captured from real gemini-3.5-flash-lite runs of the scripted questions (stability-tested wordings, see app_offline.SCRIPTED_QUESTIONS). The engine still computes fingerprints, decisions, charts, receipts and CSV exports for real.",
+ "questions": {
+  "Show OTIF by product for this year": {
+   "spec": {
+    "mode": "data",
+    "reply": "",
+    "understood": true,
+    "clarification_question": "",
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "product"
+    ],
+    "filters": {
+     "product_ids": [],
+     "market_ids": [],
+     "plants": [
+      "Plant-A"
+     ],
+     "statuses": []
     },
-    "How many units of Xarelto have we shipped by month?": {
-      "spec": {
-        "metric": "Units Shipped",
-        "dimensions": [
-          "month"
-        ],
-        "filters": {
-          "product_ids": [
-            "P-XAR"
-          ],
-          "market_ids": [],
-          "plants": [
-            "Plant-A"
-          ],
-          "statuses": []
-        },
-        "chart_type": "line",
-        "intent": "recurring",
-        "title": "Units Shipped for Xarelto by Month",
-        "understood": true,
-        "mode": "data"
-      },
-      "answers": {
-        "en": "Xarelto shipments reached their highest level in June 2026 with 701,502 units and their lowest in September 2026 with 311,774 units. Monthly shipments across the remaining months fluctuated between 376,297 and 632,333 units. Please note that 33 out of 80 source rows are forecast-like rather than actuals."
-      }
+    "intent": "recurring",
+    "chart_type": "bar",
+    "actuals_only": false,
+    "title": "On-Time In-Full by Product"
+   },
+   "answers": {
+    "en": "Xarelto achieved the highest On-Time In-Full at 82.38%, while Hyrnuo recorded the lowest at 55.32%. Please note that 154 of the 320 source rows are forecast-like rather than actuals."
+   }
+  },
+  "Näytä OTIF tuotteittain tältä vuodelta": {
+   "spec": {
+    "mode": "data",
+    "reply": "",
+    "understood": true,
+    "clarification_question": "",
+    "metric": "On-Time In-Full",
+    "dimensions": [
+     "product"
+    ],
+    "filters": {
+     "product_ids": [],
+     "market_ids": [],
+     "plants": [
+      "Plant-A"
+     ],
+     "statuses": []
     },
-    "Montako Xarelon yksikköä on toimitettu kuukausittain?": {
-      "spec": {
-        "metric": "Units Shipped",
-        "dimensions": [
-          "month"
-        ],
-        "filters": {
-          "product_ids": [
-            "P-XAR"
-          ],
-          "market_ids": [],
-          "plants": [
-            "Plant-A"
-          ],
-          "statuses": []
-        },
-        "chart_type": "line",
-        "intent": "recurring",
-        "title": "Xarelton toimitetut yksiköt kuukausittain",
-        "understood": true,
-        "mode": "data"
-      },
-      "answers": {
-        "fi": "Xareltoa on toimitettu kuukausittain eniten kesäkuussa (701 502 kpl) ja vähiten syyskuussa (311 774 kpl). Muita toimitetut määrät vaihtelevat kuukausittain esimerkiksi tammikuun 393 742 kappaleen ja toukokuun 561 836 kappaleen välillä. Huomaathan, että osa lähderiveistä on ennustetyyppisiä eikä toteumaa."
-      }
-    }
+    "intent": "recurring",
+    "chart_type": "bar",
+    "actuals_only": false,
+    "title": "On-Time In-Full by Product YTD"
+   },
+   "answers": {
+    "en": "Xarelto has the highest On-Time In-Full at 82.38%, while Hyrnuo has the lowest at 55.32%. Kerendia, Lynkuet, Nubeqa, and Eylea follow closely with strong performances between 80.25% and 82.3%. Note that 154 of the 320 source rows are forecast-like rather than actuals."
+   }
+  },
+  "What is our forecast variance right now?": {
+   "spec": {
+    "mode": "data",
+    "reply": "",
+    "understood": true,
+    "clarification_question": "",
+    "metric": "Forecast Variance",
+    "dimensions": [],
+    "filters": {
+     "product_ids": [],
+     "market_ids": [],
+     "plants": [],
+     "statuses": []
+    },
+    "intent": "one_off",
+    "chart_type": "table",
+    "actuals_only": false,
+    "title": "Forecast Variance"
+   },
+   "answers": {
+    "en": "Our current forecast variance is -177.34 M€. Please note that 489 out of 980 source rows are forecast-like rather than actuals."
+   }
+  },
+  "Show employee satisfaction by month": {
+   "spec": {
+    "mode": "data",
+    "reply": "",
+    "understood": true,
+    "clarification_question": "",
+    "metric": "UNSUPPORTED",
+    "dimensions": [],
+    "filters": {
+     "product_ids": [],
+     "market_ids": [
+      "FI"
+     ],
+     "plants": [],
+     "statuses": []
+    },
+    "intent": "one_off",
+    "chart_type": "table",
+    "actuals_only": false,
+    "title": "Employee Satisfaction by Month"
+   },
+   "answers": {
+    "en": "I could not find a governed metric for this request. I can show: Net Sales, Net Sales Growth, Units Shipped, Inventory Coverage, On-Time In-Full, Forecast Variance, Market Access Coverage, Demand Forecast Accuracy, Replenishment Reorder-By Date."
+   }
   }
+ }
 }

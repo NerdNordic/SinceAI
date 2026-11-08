@@ -38,14 +38,31 @@ def main() -> int:
                     help="recorder pause windows [start_ms, end_ms] to compress")
     ap.add_argument("--cut-hold", type=float, default=0.5,
                     help="gap seconds across a paused wait (default 0.5)")
+    ap.add_argument("--fps", type=float, default=12.0,
+                    help="output fps; frames arriving faster are dropped (default 12)")
     args = ap.parse_args()
 
     frames = Path(args.frames)
     stamps = json.loads(Path(args.stamps).read_text())
-    n = len(stamps)
-    if n < 10:
-        print(f"too few frames: {n}", file=sys.stderr)
+    if len(stamps) < 10:
+        print(f"too few frames: {len(stamps)}", file=sys.stderr)
         return 1
+
+    # Temporal downsampling: overlay animations make Chrome emit frames faster
+    # than the output fps; keeping them all would stretch the timeline (each
+    # sub-fps gap gets quantized up to one frame duration). Keep at most one
+    # frame per 1/fps window (plus always the final frame).
+    min_gap_ms = 1000.0 / args.fps - 1e-6
+    kept = [(0, stamps[0])]
+    last = stamps[0]
+    for i, t in enumerate(stamps[1:], start=1):
+        if t - last >= min_gap_ms:
+            kept.append((i, t))
+            last = t
+    if kept[-1][0] != len(stamps) - 1:
+        kept.append((len(stamps) - 1, stamps[-1]))
+    print(f"frames: {len(stamps)} -> {len(kept)} at {args.fps}fps "
+          f"(span {(stamps[-1] - stamps[0]) / 1000:.1f}s)")
 
     cuts = []
     cuts_path = Path(args.cuts)
@@ -56,24 +73,25 @@ def main() -> int:
         return any(ws < t1 and we > t0 for ws, we in cuts)
 
     lines = ["ffconcat version 1.0"]
-    for i, t in enumerate(stamps):
-        if i + 1 < n:
-            dur = (stamps[i + 1] - t) / 1000.0
-            cap = args.cut_hold if overlaps_cut(t, stamps[i + 1]) else args.max_gap
+    n = len(kept)
+    for j, (i, t) in enumerate(kept):
+        if j + 1 < n:
+            dur = (kept[j + 1][1] - t) / 1000.0
+            cap = args.cut_hold if overlaps_cut(t, kept[j + 1][1]) else args.max_gap
             dur = max(0.03, min(dur, cap))
         else:
             dur = 0.08
         lines.append(f"file 'frames/f{i:05d}.jpg'")
         lines.append(f"duration {dur:.3f}")
-    lines.append(f"file 'frames/f{n - 1:05d}.jpg'")
+    lines.append(f"file 'frames/f{kept[-1][0]:05d}.jpg'")
     list_path = frames.parent / "list.txt"
-    list_path.write_text("\n".join(lines) + "\n")
+    list_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     ff = ffmpeg_path(args.ffmpeg)
     cmd = [ff, "-y", "-f", "concat", "-safe", "0", "-i", str(list_path),
-           "-vf", "fps=12,format=yuv420p", "-c:v", "libx264", "-crf", "19",
+           "-vf", f"fps={args.fps:g},format=yuv420p", "-c:v", "libx264", "-crf", "19",
            "-preset", "medium", "-movflags", "+faststart", str(out)]
     r = subprocess.run(cmd, cwd=frames.parent, capture_output=True, text=True)
     if r.returncode:

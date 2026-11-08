@@ -1,34 +1,45 @@
 # SinceAI video demo generator
 
-Records a ~2 minute MP4 tour of the application: Plant Director briefing,
-ask flow with decision badges (REUSE / BUILD), calculation receipts and CSV
-export, Data Steward governance, a Finnish follow-up question and the theme
-toggle. One command from the `application/` directory with the project venv:
+Records a ~45s MP4 pitch ("Build Less, Build Better", storyboard in
+`SCRIPT.md`): title card, four roles asking questions in plain language
+(BUILD / REUSE / ANSWER / CLARIFY badges), and the Data Steward certifying
+the reused chart with test results proving repeatability. One command from
+the `application/` directory with the project venv:
 
 ```powershell
-& '..\.venv\Scripts\python.exe' -m pip install -r requirements-dev.txt   # once: adds imageio-ffmpeg
-& '..\.venv\Scripts\python.exe' -m tools.video_demo.run_all              # real Gemini (~4 min)
-& '..\.venv\Scripts\python.exe' -m tools.video_demo.run_all --fast       # canned answers (~2 min)
+& '..\.venv\Scripts\python.exe' -m pip install -r requirements-dev.txt      # once: adds imageio-ffmpeg
+& '..\.venv\Scripts\python.exe' -m tools.video_demo.run_all                 # real Gemini (~4 min)
+& '..\.venv\Scripts\python.exe' -m tools.video_demo.run_all --rehearse      # dry-run Gemini, then record (~4-5 min)
+& '..\.venv\Scripts\python.exe' -m tools.video_demo.run_all --fast         # canned answers (~2 min)
 ```
 
-Output lands in `output/sinceai-demo.mp4` (gitignored), 1400x900 H.264.
+Output lands in `../../../output/sinceai-demo.mp4` (gitignored), 1600x900
+H.264 at 12fps, with a cursor overlay, click ripples, top captions and
+title/end cards.
 
 ## How it works
 
 1. `app_offline.py` starts Uvicorn against **mongomock seeded from the data
    pack** (no MongoDB, no writes to Atlas) plus deterministic lived-in state:
    the header meter starts at **76 requests / 19 new charts / 32 without a new
-   chart**, the registry holds certified charts with certify/retire
-   suggestions, dashboards have pinned tiles, and a pending proposal waits for
-   the Data Steward. `random.seed(42)` and pinned `TODAY` keep runs identical.
+   chart**, the registry holds certified charts, and the eval run (40/40
+   passed, 39/40 consistent, 0 guesses) is seeded into `eval_runs` for the
+   steward's QA section. `random.seed(42)` and pinned `TODAY` keep runs
+   identical.
 2. `recorder.cjs` drives the real frontend through a Chrome DevTools Protocol
    **screencast** (frames arrive as the page repaints; a tiny animated pixel
-   keeps a steady heartbeat on static screens) while it walks the storyboard
-   and asks the three demo questions.
+   keeps a heartbeat on static screens, and mouse nudges keep the end cards
+   emitting damage) while it walks the 7-scene storyboard in `SCRIPT.md` -
+   glides, click ripples, captions at the top, cards, and the four scripted
+   questions.
 3. `assembler.py` turns the JPEG frames + arrival timestamps into an MP4,
-   clamping each gap at 2.2s so loading/Gemini waits stay visible but never
-   drag. `run_all.py` verifies the result (meter deltas prove the
-   REUSE/BUILD/REUSE story happened, duration sanity check).
+   clamping each gap at 2.2s, compressing trimmed wait windows to
+   `--cut-hold`, and temporally downsampling to `--fps` (default 12).
+4. `run_all.py` verifies the result end-to-end: the decision sequence
+   BUILD->REUSE->ANSWER->CLARIFY, meter deltas 76/19/32 -> 80/20/34, exactly
+   one new chart, +2 handled without a new chart, the eval run in the
+   steward view, the OTIF chart certified with use_count >= 1 and 2 roles,
+   and duration 38-52s.
 
 ### Loading-state trimming
 
@@ -39,31 +50,41 @@ to `--cut-hold` (default 0.5s - one beat on the last frame, then content):
 
 | Wait | Skeleton kept visible |
 | --- | --- |
-| Chat answers ("Gemini tulkitsee…") | up to ~1.6s of the real thinking state, then cut (answers that arrive sooner are never trimmed) |
-| Initial page load | ~0.4s flash |
-| Role switches | ~0.35s flash |
-| Preview modal | ~0.25s flash |
-| Language switches | ~0.3s flash |
+| Chat answers ("Gemini tulkitsee…") | ~1s of the real thinking state, then cut (answers that arrive sooner are never trimmed) |
+| Initial page load | ~0.3s flash |
+| Role switches | ~0.3s flash |
+| Language/preview switches | ~0.25s flash |
 
 The taste durations are constants at the call sites in `recorder.cjs`
 (`trimLoad(...)` / `trimChat(...)`), so they are easy to tune.
 
 ## Demo questions and expected decisions
 
+Wordings are stability-probed against real gemini-3.5-flash-lite
+(3/3 deterministic for the first three; the fourth is ~2/3 and is what the
+`--rehearse` retry loop is for):
+
 | Question | Decision | Why |
 | --- | --- | --- |
-| Show net sales month over month | REUSE | matches a seeded certified chart (both `Net Sales` and `Net Sales Growth` mappings are seeded, so Gemini's choice reuses either way) |
-| How many units of Xarelto have we shipped by month? | BUILD | new chart registered live; the meter ticks 76 -> 77 during recording |
-| Montako Xarelon yksikköä on toimitettu kuukausittain? | REUSE | same chart, answered in Finnish |
+| Show OTIF by product for this year (shift supervisor) | BUILD | new chart registered live; the meter ticks 76 -> 77 during recording |
+| Näytä OTIF tuotteittain tältä vuodelta (plant director) | REUSE | same chart via the Finnish mapping, answered in English |
+| What is our forecast variance right now? (finance controller) | ANSWER | one-off number, no new chart (the script's "this year?" wording would BUILD instead) |
+| Show employee satisfaction by month (country manager) | CLARIFY | unsupported metric - SinceAI asks instead of guessing |
 
 ## Modes
 
-* **Real (default)**: live Gemini wording. Spec generation is deterministic
-  (temperature 0) but wording varies slightly (temperature 0.2) between runs.
+* **Real (default)**: live Gemini wording. Decisions are deterministic
+  (spec temperature 0) but wording varies slightly between runs.
+* **`--rehearse`**: before recording, the launcher runs every scripted
+  question in-process against real Gemini (up to 6 attempts per question,
+  clearing the cached spec doc and restoring the pre-question state between
+  attempts) so the recorded run hits warm `llm_cache` entries and the
+  expected decision sequence is guaranteed; the state is restored afterwards.
 * **`--fast`**: replays the specs/answers captured in `responses_fast.json`
-  from real gemini-3.5-flash-lite runs. Decisions, fingerprints, charts,
-  receipts and CSV exports are still computed for real by the engine - only
-  the Gemini calls are replayed. Fully deterministic and instant.
+  from real gemini-3.5-flash-lite runs (the launcher also self-checks them
+  via the same dry-run). Decisions, fingerprints, charts, receipts and CSV
+  exports are still computed for real by the engine - only the Gemini calls
+  are replayed. Fully deterministic and instant.
 
 ## Prerequisites
 
@@ -84,9 +105,10 @@ The taste durations are constants at the call sites in `recorder.cjs`
 
 ## Useful flags
 
-`--out PATH`, `--fast`, `--base-url URL`, `--cdp URL`, `--viewport WxH`,
-`--port N`, `--cut-hold SECONDS`, `--keep-frames`. Transient artifacts live in
-`.work/` (gitignored).
+`--out PATH`, `--fast`, `--rehearse`, `--base-url URL`, `--cdp URL`,
+`--viewport WxH` (default 1600x900), `--port N`, `--fps N`,
+`--cut-hold SECONDS`, `--keep-frames`. Transient artifacts live in `.work/`
+(gitignored).
 
 ## Using your real chart registry
 
@@ -114,3 +136,6 @@ python -m tools.video_demo.run_all
 * `recorder.cjs` requires the Chrome container's CDP endpoint; Playwright's
   built-in `recordVideo` does not work over `connectOverCDP`, hence the
   manual screencast pipeline.
+* CDP screencast pauses (the trim windows) stop the heartbeat animation
+  until the next input-driven repaint - that is why the recorder nudges the
+  mouse on static end/title cards.
